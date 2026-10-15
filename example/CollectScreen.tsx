@@ -4,7 +4,7 @@
  *
  * Needs on the Config tab: environment, chainId, bearer.
  */
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useReducer, useRef, useState} from 'react';
 import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
 import {
@@ -14,7 +14,15 @@ import {
   type WirexCollectState,
 } from '@wirexapp/mobile-sdk';
 
-import {exampleCredentialProvider, getSettings, isTestMode, onConfigChange} from './exampleConfig';
+import {
+  exampleCredentialProvider,
+  getAppearance,
+  getSettings,
+  getThemeMode,
+  isTestMode,
+  onAppearanceChange,
+  onConfigChange,
+} from './exampleConfig';
 import {radius, T} from './theme';
 
 export default function CollectScreen(): React.JSX.Element {
@@ -24,6 +32,10 @@ export default function CollectScreen(): React.JSX.Element {
   const [result, setResult] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const form = useRef<WirexCollectFormHandle | null>(null);
+  // Appearance is on its own channel: re-render for the new tokens without reconfiguring the form
+  // (a reconfigure would clear what the user has typed).
+  const [, restyle] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => onAppearanceChange(restyle), []);
 
   const configure = useCallback(async () => {
     setError(null);
@@ -82,7 +94,8 @@ export default function CollectScreen(): React.JSX.Element {
         <View style={styles.card}>
           <WirexCollectFormView
             profile="topup"
-            themeMode="dark"
+            appearance={getAppearance()}
+            themeMode={getThemeMode()}
             onReady={(handle: WirexCollectFormHandle) => (form.current = handle)}
             onChange={setState}
             style={styles.form}

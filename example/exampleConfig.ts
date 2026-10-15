@@ -13,7 +13,7 @@
  * freshly typed value takes effect on the next call without remounting. In a real integration the host
  * mints these credentials from its own auth and the user's wallet; this example lets you paste them.
  */
-import type {WirexActionScope, WirexCredentialProvider} from '@wirexapp/mobile-sdk';
+import type {WirexActionScope, WirexCredentialProvider, WirexThemeMode} from '@wirexapp/mobile-sdk';
 
 export type ExampleEnvironment = 'production' | 'test';
 
@@ -173,6 +173,58 @@ interface TokenRow {
   decimals?: number;
   equivalent_symbols?: string[];
 }
+
+/**
+ * Appearance — the token map handed to the Reveal and Collect views, and the mode that map IS.
+ *
+ * Kept apart from `settings`/`secrets` and broadcast on its OWN channel (`onAppearanceChange`): a
+ * restyle must re-render the native views WITHOUT tearing down a live reveal session or clearing a
+ * half-typed collect form, so the field screens react to config changes (which rebuild) and to
+ * appearance changes (which only re-read the prop) separately.
+ *
+ * ONE map, not a light/dark pair. The SDK resolves no theme — it draws the one document it is handed,
+ * and a host that follows the device supplies a different document when its own screen flips.
+ * `themeMode` only tells the SDK which built-in defaults an unset token falls through to.
+ */
+export type AppearanceTokens = Record<string, string | number>;
+
+let appearanceTokens: AppearanceTokens = {};
+let themeMode: WirexThemeMode = 'dark';
+
+const appearanceListeners = new Set<() => void>();
+const notifyAppearance = (): void => appearanceListeners.forEach((fn) => fn());
+
+/** Subscribe to an appearance/theme change (the Appearance screen writes, the field screens re-read). */
+export const onAppearanceChange = (fn: () => void): (() => void) => {
+  appearanceListeners.add(fn);
+  return () => appearanceListeners.delete(fn);
+};
+
+export const getAppearance = (): Readonly<AppearanceTokens> => appearanceTokens;
+export const getThemeMode = (): WirexThemeMode => themeMode;
+
+/** A preset button: replace the whole map outright — a merge would leave the previous preset's tokens on. */
+export const setAppearance = (tokens: AppearanceTokens): void => {
+  appearanceTokens = {...tokens};
+  notifyAppearance();
+};
+
+/** A pasted document: merge, so a partial map tweaks the current one rather than replacing it. */
+export const mergeAppearance = (tokens: AppearanceTokens): void => {
+  appearanceTokens = {...appearanceTokens, ...tokens};
+  notifyAppearance();
+};
+
+/** Back to an empty map — every token falls through to the mode's own SDK default. */
+export const resetAppearance = (): void => {
+  appearanceTokens = {};
+  notifyAppearance();
+};
+
+export const setThemeMode = (mode: WirexThemeMode): void => {
+  themeMode = mode;
+  notifyAppearance();
+};
 
 /**
  * The credential provider the SDK calls. It reads the live config PER CALL, so a bearer or action

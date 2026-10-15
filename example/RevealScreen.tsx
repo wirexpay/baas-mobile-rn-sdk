@@ -5,7 +5,7 @@
  *
  * Needs on the Config tab: environment, chainId, bearer, step-up action token, cardId.
  */
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useReducer, useState} from 'react';
 import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
 import {
@@ -17,7 +17,15 @@ import {
   type WirexRevealStrings,
 } from '@wirexapp/mobile-sdk';
 
-import {exampleCredentialProvider, getSettings, isTestMode, onConfigChange} from './exampleConfig';
+import {
+  exampleCredentialProvider,
+  getAppearance,
+  getSettings,
+  getThemeMode,
+  isTestMode,
+  onAppearanceChange,
+  onConfigChange,
+} from './exampleConfig';
 import {radius, T} from './theme';
 
 // PIN is omitted: a virtual card has none (the service answers "GetPin is not supported for retail"),
@@ -60,6 +68,10 @@ export default function RevealScreen(): React.JSX.Element {
   // height per field.
   const [heights, setHeights] = useState<Record<string, number>>({});
   const [note, setNote] = useState('');
+  // Appearance lives on its own channel: re-render to pick up the new tokens WITHOUT rebuilding the
+  // session (that would re-mint the step-up token and re-mask every row for a pure style change).
+  const [, restyle] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => onAppearanceChange(restyle), []);
 
   const rebuild = useCallback(async () => {
     setError(null);
@@ -120,7 +132,8 @@ export default function RevealScreen(): React.JSX.Element {
                   session={session}
                   field={field}
                   strings={STRINGS}
-                  themeMode="dark"
+                  appearance={getAppearance()}
+                  themeMode={getThemeMode()}
                   masked={masked[field]}
                   onMaskedChange={(state) => setMasked((cur) => (cur[field] === state.masked ? cur : {...cur, [field]: state.masked}))}
                   onNaturalHeight={(h: number) => setHeights((cur) => (cur[field] === h ? cur : {...cur, [field]: h}))}
