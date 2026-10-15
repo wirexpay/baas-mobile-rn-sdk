@@ -23,7 +23,7 @@ export interface ExampleSettings {
   environment: ExampleEnvironment;
   /** `X-Chain-Id` — the chain the partner operates on. Wirex assigns it per integration. */
   chainId: string;
-  /** `?client=` on the hosted pages (font-src / chain). Wirex assigns it; optional. */
+  /** Optional partner id for the hosted wallet pages. Only set it if Wirex gave you one. */
   clientId: string;
   /** Identity headers. The backend accepts exactly one — email OR wallet. */
   userEmail: string;

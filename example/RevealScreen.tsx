@@ -163,9 +163,9 @@ function Btn({label, onPress, primary, disabled}: {label: string; onPress: () =>
 }
 
 function stateStyle(state?: string) {
-  if (state === 'loaded') return {backgroundColor: '#3CC65E22', borderColor: T.green};
+  if (state === 'ready') return {backgroundColor: '#3CC65E22', borderColor: T.green};
   if (state === 'loading') return {backgroundColor: '#5753EA22', borderColor: T.accent};
-  if (state === 'failed') return {backgroundColor: '#FF407F22', borderColor: T.pink};
+  if (state === 'error') return {backgroundColor: '#FF407F22', borderColor: T.pink};
   return {backgroundColor: T.surfaceAlt, borderColor: T.border};
 }
 

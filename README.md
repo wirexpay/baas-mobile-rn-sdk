@@ -16,14 +16,13 @@ Use of the SDK requires an agreement with Wirex. See [LICENSE](LICENSE).
 
 ## Requirements
 
-- React Native 0.72 or later, with the New Architecture.
-- `react-native-webview` 13.15 or later, for the wallet.
-- iOS 13 or later; Android 6.0 (API 23) or later.
+- React Native 0.74 or later, with the New Architecture enabled.
+- iOS 15 or later; Android 6.0 (API 23) or later.
 
 ## Installation
 
 ```sh
-npm install @wirexapp/mobile-sdk react-native-webview
+npm install @wirexapp/mobile-sdk
 ```
 
 The native SDK is installed with the package: the `WirexMobileSDK` pod from CocoaPods trunk on iOS,

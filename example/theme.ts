@@ -1,7 +1,6 @@
 /**
- * A small Wirex-One-flavoured palette for the example — dark brand surface, vivid accents, not the
- * default gray. Mirrors the app's token families (colors.ts): a near-black base (#101022) and the
- * primary accent set (indigo / purple / pink / green).
+ * A small dark palette for the example — brand-like surface, vivid accents, not the default gray:
+ * a near-black base (#101022) and an accent set (indigo / purple / pink / green).
  */
 export const T = {
   // Surfaces
