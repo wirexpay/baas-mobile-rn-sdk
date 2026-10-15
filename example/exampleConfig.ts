@@ -36,6 +36,11 @@ export interface ExampleSettings {
   walletCurrency: string;
   /** The estimate's provider NAME; the frame resolves its block from the provider config by it. */
   walletProvider: string;
+  /** The Wirex BaaS API base URL, for the "Fetch estimate" helper on the Wallet tab. Pricing a top-up
+   *  is your BACKEND's job; the helper calls the documented BaaS API with your bearer so you can
+   *  verify the token and get a real estimationId without a backend. Wirex gives you the base for your
+   *  environment. Leave blank if you paste an estimationId instead. */
+  baasApiUrl: string;
   /** DEV/TEST ONLY: draw the revealed PAN/CVV on the iOS Simulator (the SDK's secure capture layer
    *  renders blank there). Off by default; never ship it on to cardholders. */
   devDisableScreenProtection: boolean;
@@ -63,6 +68,7 @@ const DEFAULT_SETTINGS: ExampleSettings = {
   walletAmount: '10.00',
   walletCurrency: 'EUR',
   walletProvider: '',
+  baasApiUrl: '',
   devDisableScreenProtection: false,
 };
 
@@ -99,6 +105,74 @@ export const resetConfig = (): void => {
 
 /** `test` everywhere but the production name. */
 export const isTestMode = (): boolean => settings.environment !== 'production';
+
+/** display amount (e.g. "10.00") → base-units string (amount * 10^decimals), without float loss. */
+function toBaseUnits(amount: string, decimals: number): string {
+  const [whole, frac = ''] = amount.split('.');
+  const scaled = `${whole}${(frac + '0'.repeat(decimals)).slice(0, decimals)}`.replace(/^0+/, '');
+  return scaled || '0';
+}
+
+/**
+ * Prices a wallet top-up with the Wirex BaaS API — the step your BACKEND owns in a real integration.
+ * The example calls it with the bearer from the Config tab so you can verify your token and get a real
+ * `estimationId` without standing up a backend. This is NOT something the SDK does; the SDK consumes
+ * the id your backend produces. Endpoints are the documented Wirex BaaS API.
+ *
+ * Needs on the Config tab: BaaS API URL, bearer, chain id, ONE identity (wallet or email), wallet
+ * amount + currency.
+ */
+export async function fetchTopUpEstimate(): Promise<string> {
+  const base = settings.baasApiUrl.replace(/\/+$/, '');
+  if (!base) throw new Error('Set the BaaS API URL on the Config tab');
+  const bearer = secrets.bearer;
+  if (!bearer) throw new Error('Set a bearer on the Config tab');
+  const identity: Record<string, string> | null = settings.userWallet
+    ? {'X-User-Wallet': settings.userWallet}
+    : settings.userEmail
+      ? {'X-User-Email': settings.userEmail}
+      : null;
+  if (!identity) throw new Error('Set a user wallet or email on the Config tab');
+  const headers = {
+    Authorization: `Bearer ${bearer}`,
+    'X-Chain-Id': settings.chainId,
+    ...identity,
+    'Content-Type': 'application/json',
+  };
+
+  // 1) settlement token for the wallet currency — GET /api/v1/config/tokens (documented).
+  const toksRes = await fetch(`${base}/api/v1/config/tokens`, {headers});
+  if (!toksRes.ok) throw new Error(`GET /config/tokens → HTTP ${toksRes.status}`);
+  const toksBody = (await toksRes.json()) as {data?: TokenRow[]} | TokenRow[];
+  const tokens: TokenRow[] = Array.isArray(toksBody) ? toksBody : toksBody.data ?? [];
+  const cur = settings.walletCurrency;
+  const token = tokens.find(
+    (t) => (t.equivalent_symbols ?? []).includes(cur) || (t.symbol ?? '').endsWith(cur),
+  );
+  if (!token) throw new Error(`no settlement token for ${cur}`);
+
+  // 2) price the top-up — POST /api/v1/cards/topup/estimate (documented).
+  const estRes = await fetch(`${base}/api/v1/cards/topup/estimate`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      destination_amount: toBaseUnits(settings.walletAmount, token.decimals ?? 18),
+      destination_token_address: token.address ?? token.contract_address,
+      payment_method: 'apple_pay',
+    }),
+  });
+  if (!estRes.ok) throw new Error(`POST /cards/topup/estimate → HTTP ${estRes.status}`);
+  const est = (await estRes.json()) as {estimation_id: string};
+  return est.estimation_id;
+}
+
+interface TokenRow {
+  address?: string;
+  contract_address?: string;
+  symbol?: string;
+  decimals?: number;
+  equivalent_symbols?: string[];
+}
 
 /**
  * The credential provider the SDK calls. It reads the live config PER CALL, so a bearer or action

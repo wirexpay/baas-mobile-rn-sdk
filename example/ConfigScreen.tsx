@@ -33,6 +33,7 @@ const SETTING_FIELDS: {key: FieldKey; label: string; hint?: string}[] = [
   {key: 'walletAmount', label: 'Wallet amount', hint: 'top-up quote the Checkout arms with'},
   {key: 'walletCurrency', label: 'Wallet currency'},
   {key: 'walletProvider', label: 'Wallet provider', hint: "estimate's provider name"},
+  {key: 'baasApiUrl', label: 'BaaS API URL', hint: 'for "Fetch estimate" — pricing is your backend\'s job'},
 ];
 
 const SECRET_FIELDS: {key: 'bearer' | 'actionToken' | 'checkoutToken'; label: string; hint: string}[] = [

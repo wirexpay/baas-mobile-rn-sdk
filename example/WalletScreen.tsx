@@ -14,7 +14,7 @@
  * quote + provider config; only the Pay sheet itself needs a device.
  */
 import React, {useEffect, useMemo, useState} from 'react';
-import {ScrollView, StyleSheet, Switch, Text, TextInput, View} from 'react-native';
+import {ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View} from 'react-native';
 
 import {
   WirexWalletAvailabilityProbe,
@@ -24,7 +24,7 @@ import {
   type WirexWalletProviderConfig,
 } from '@wirexapp/mobile-sdk';
 
-import {getSecret, getSettings} from './exampleConfig';
+import {fetchTopUpEstimate, getSecret, getSettings} from './exampleConfig';
 import {radius, T} from './theme';
 
 // Starter provider block. It has no `probe_url` / `checkout_url`, so the availability probe cannot run
@@ -38,6 +38,19 @@ export default function WalletScreen(): React.JSX.Element {
   const [providerJson, setProviderJson] = useState(PLACEHOLDER_PROVIDER);
   const [tokenMode, setTokenMode] = useState(false);
   const [events, setEvents] = useState<string[]>([]);
+  // "Fetch estimate" prices a top-up with the BaaS API (your backend's job) using the bearer on the
+  // Config tab — a quick way to verify your token and fill the estimation id without a backend.
+  const [estimateMsg, setEstimateMsg] = useState('');
+  const fetchEstimate = async (): Promise<void> => {
+    setEstimateMsg('fetching estimate…');
+    try {
+      const id = await fetchTopUpEstimate();
+      setEstimationId(id);
+      setEstimateMsg(`estimate ${id.slice(0, 8)}… loaded`);
+    } catch (e) {
+      setEstimateMsg(`estimate failed: ${String(e)}`);
+    }
+  };
 
   const providerConfig = useMemo<WirexWalletProviderConfig | null>(() => {
     try {
@@ -105,8 +118,12 @@ export default function WalletScreen(): React.JSX.Element {
 
       <View style={styles.group}>
         <Text style={styles.label}>Estimation ID</Text>
-        <Text style={styles.hint}>from your backend's top-up estimate</Text>
+        <Text style={styles.hint}>from your backend's top-up estimate — or Fetch it with your bearer</Text>
         <TextInput style={styles.input} value={estimationId} onChangeText={setEstimationId} autoCapitalize="none" autoCorrect={false} placeholderTextColor={T.textFaint} />
+        <TouchableOpacity style={styles.fetchBtn} onPress={() => void fetchEstimate()} activeOpacity={0.85}>
+          <Text style={styles.fetchBtnText}>Fetch estimate</Text>
+        </TouchableOpacity>
+        {estimateMsg ? <Text style={styles.fetchMsg}>{estimateMsg}</Text> : null}
 
         <Text style={[styles.label, {marginTop: 14}]}>Provider config</Text>
         <Text style={styles.hint}>your app config's topup.providers.&lt;name&gt; block, verbatim</Text>
@@ -174,6 +191,9 @@ const styles = StyleSheet.create({
   warn: {fontSize: 12, color: T.pink, marginTop: 2},
   input: {marginTop: 6, borderWidth: 1, borderColor: T.border, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 11, color: T.text, backgroundColor: T.surfaceAlt},
   multiline: {minHeight: 70, textAlignVertical: 'top'},
+  fetchBtn: {marginTop: 10, alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.md, backgroundColor: T.accent},
+  fetchBtnText: {color: T.onAccent, fontWeight: '800', fontSize: 13},
+  fetchMsg: {marginTop: 8, color: T.textDim, fontSize: 12},
   switchRow: {flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 10},
   checkoutCard: {marginTop: 16, backgroundColor: T.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: T.border, overflow: 'hidden'},
   note: {fontSize: 13, color: T.textDim, marginTop: 16},
