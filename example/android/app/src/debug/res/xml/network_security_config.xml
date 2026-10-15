@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug overlay only, and one exemption: Metro. The React Native template permits cleartext
+  wholesale in debug through the `${usesCleartextTraffic}` manifest placeholder; a network security
+  config takes precedence over that flag on API 24+, so this narrows the permission to the host
+  machine the dev server runs on instead of every host on the internet.
+
+  The SDK itself always talks HTTPS to a compiled-in endpoint and needs no exemption.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- The emulator's alias for this machine, where Metro is served from. -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

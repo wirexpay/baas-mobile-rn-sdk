@@ -1,0 +1,8 @@
+{
+  "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "skipLibCheck": true
+  },
+  "include": ["*.ts", "*.tsx", "index.js"]
+}
