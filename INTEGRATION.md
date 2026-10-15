@@ -2,7 +2,7 @@
 
 > Audience: an AI assistant helping a partner integrate `@wirexapp/mobile-sdk` (React Native).
 > This file is the working context — read top to bottom; every fact is load-bearing.
-> It is dense on purpose: no marketing. The human-facing version is `INTEGRATION.html`.
+> It is dense on purpose: no marketing. The human-facing version is published at https://wirexpay.github.io/baas-mobile-rn-sdk/.
 > It describes the SDK's public surface and the integrator's responsibilities. For the exact
 > backend request/response shapes, defer to the Wirex BaaS API reference Wirex provides with the
 > integration — this file does not restate them.
