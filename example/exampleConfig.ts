@@ -13,6 +13,8 @@
  * freshly typed value takes effect on the next call without remounting. In a real integration the host
  * mints these credentials from its own auth and the user's wallet; this example lets you paste them.
  */
+import {Platform} from 'react-native';
+
 import type {WirexActionScope, WirexCredentialProvider, WirexThemeMode} from '@wirexapp/mobile-sdk';
 
 export type ExampleEnvironment = 'production' | 'test';
@@ -124,7 +126,9 @@ function toBaseUnits(amount: string, decimals: number): string {
  */
 export async function fetchTopUpEstimate(): Promise<string> {
   const base = settings.baasApiUrl.replace(/\/+$/, '');
-  if (!base) throw new Error('Set the BaaS API URL on the Config tab');
+  // https only: the bearer goes to whatever is typed here. The chain id is required by the API.
+  if (!/^https:\/\//.test(base)) throw new Error('Set an https BaaS API URL on the Config tab');
+  if (!settings.chainId) throw new Error('Set the chain id on the Config tab');
   const bearer = secrets.bearer;
   if (!bearer) throw new Error('Set a bearer on the Config tab');
   const identity: Record<string, string> | null = settings.userWallet
@@ -158,7 +162,7 @@ export async function fetchTopUpEstimate(): Promise<string> {
     body: JSON.stringify({
       destination_amount: toBaseUnits(settings.walletAmount, token.decimals ?? 18),
       destination_token_address: token.address ?? token.contract_address,
-      payment_method: 'apple_pay',
+      payment_method: Platform.OS === 'ios' ? 'apple_pay' : 'google_pay',
     }),
   });
   if (!estRes.ok) throw new Error(`POST /cards/topup/estimate → HTTP ${estRes.status}`);
