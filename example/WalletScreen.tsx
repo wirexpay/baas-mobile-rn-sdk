@@ -13,12 +13,16 @@
  * on the simulator it returns false and the banner says so. The checkout still ARMS with a valid
  * quote + provider config; only the Pay sheet itself needs a device.
  */
-import React, {useEffect, useMemo, useState} from 'react';
-import {ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {Linking, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import InAppBrowser from 'react-native-inappbrowser-reborn';
 
 import {
   WirexWalletAvailabilityProbe,
   WirexWalletCheckoutView,
+  buildWalletLaunchUrl,
+  isWalletReturnLink,
+  parseWalletReturnLink,
   useWalletAvailability,
   type WirexWalletCheckoutEvent,
   type WirexWalletProviderConfig,
@@ -31,6 +35,11 @@ import {radius, T} from './theme';
 // against it — paste the real `topup.providers.<name>` block from your app config to arm the checkout
 // and let the probe resolve.
 const PLACEHOLDER_PROVIDER = '{ "google_pay": {}, "apple_pay": {} }';
+
+// Demo App Link the Android checkout returns to. A real host uses its own verified domain
+// (assetlinks.json) so the tab hands straight back to the app; this declares the example's demo host
+// (see android/app/src/main/AndroidManifest.xml).
+const RETURN_URL = 'https://wirex-sdk-example.wirexapp.tech/wallet-return';
 
 export default function WalletScreen(): React.JSX.Element {
   const settings = getSettings();
@@ -61,8 +70,57 @@ export default function WalletScreen(): React.JSX.Element {
   }, [providerJson]);
 
   const log = (event: WirexWalletCheckoutEvent) => setEvents((prev) => [event.type, ...prev].slice(0, 12));
+  const pushEvent = useCallback((line: string) => setEvents((prev) => [line, ...prev].slice(0, 12)), []);
   const ready = Boolean(estimationId.trim() && providerConfig);
   const checkoutToken = getSecret('checkoutToken');
+
+  // Android: the checkout opens TOP-LEVEL in a Chrome Custom Tab, never a WebView — Google Pay validates
+  // the hosting app's package, which a WebView cannot satisfy. The SDK builds the URL
+  // (`buildWalletLaunchUrl`, token in the fragment); the app opens the tab and reads the return App Link.
+  const readReturn = useCallback(
+    (url: string | null) => {
+      if (!url || !isWalletReturnLink(url, RETURN_URL)) return;
+      const back = parseWalletReturnLink(url);
+      pushEvent(`return outcome=${back.outcome ?? 'unknown'}`);
+    },
+    [pushEvent],
+  );
+  useEffect(() => {
+    if (Platform.OS !== 'android') return undefined;
+    const sub = Linking.addEventListener('url', ({url}) => {
+      readReturn(url);
+      void InAppBrowser.close();
+    });
+    return () => sub.remove();
+  }, [readReturn]);
+
+  const launchCustomTab = useCallback(async () => {
+    if (!providerConfig || !estimationId.trim()) return;
+    if (!checkoutToken) {
+      pushEvent('set a checkout token on Config');
+      return;
+    }
+    const url = buildWalletLaunchUrl(
+      {environment: settings.environment, clientId: settings.clientId || undefined},
+      {
+        checkoutToken,
+        quote: {estimationId: estimationId.trim(), sourceAmount: {amount: settings.walletAmount, currency: settings.walletCurrency}},
+        provider: settings.walletProvider,
+        returnUrl: RETURN_URL,
+      },
+    );
+    // The fragment carries the token — log only the part before it.
+    pushEvent(`opening Custom Tab: ${url.split('#')[0]}#<redacted>`);
+    try {
+      if (await InAppBrowser.isAvailable()) {
+        await InAppBrowser.open(url, {showTitle: false, enableUrlBarHiding: true});
+      } else {
+        await Linking.openURL(url);
+      }
+    } catch (e) {
+      pushEvent(`launch failed: ${String(e)}`);
+    }
+  }, [providerConfig, estimationId, checkoutToken, settings, pushEvent]);
 
   // The SDK's own probe (native canMakePayments). This is how a host decides whether to show a Pay
   // button — and it is the honest "is this a real device" check: on the iOS Simulator (and on a
@@ -143,16 +201,30 @@ export default function WalletScreen(): React.JSX.Element {
       </View>
 
       {ready ? (
-        <View style={styles.checkoutCard}>
-          <WirexWalletCheckoutView
-            config={{environment: settings.environment, clientId: settings.clientId || undefined}}
-            quote={{estimationId: estimationId.trim(), sourceAmount: {amount: settings.walletAmount, currency: settings.walletCurrency}}}
-            providerConfig={providerConfig as WirexWalletProviderConfig}
-            provider={settings.walletProvider || undefined}
-            auth={tokenMode && checkoutToken ? {checkoutToken} : undefined}
-            onEvent={log}
-          />
-        </View>
+        Platform.OS === 'android' ? (
+          // Android: launch the checkout top-level in a Chrome Custom Tab (not a WebView).
+          <View style={styles.group}>
+            <Text style={styles.label}>Custom Tab checkout</Text>
+            <Text style={styles.hint}>
+              Opens top-level in a Chrome Custom Tab — Google Pay validates the app's package, which a WebView
+              cannot satisfy. Needs a checkout token on the Config tab.
+            </Text>
+            <TouchableOpacity style={styles.fetchBtn} onPress={() => void launchCustomTab()} activeOpacity={0.85}>
+              <Text style={styles.fetchBtnText}>Launch in Custom Tab</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.checkoutCard}>
+            <WirexWalletCheckoutView
+              config={{environment: settings.environment, clientId: settings.clientId || undefined}}
+              quote={{estimationId: estimationId.trim(), sourceAmount: {amount: settings.walletAmount, currency: settings.walletCurrency}}}
+              providerConfig={providerConfig as WirexWalletProviderConfig}
+              provider={settings.walletProvider || undefined}
+              auth={tokenMode && checkoutToken ? {checkoutToken} : undefined}
+              onEvent={log}
+            />
+          </View>
+        )
       ) : (
         <Text style={styles.note}>Enter an estimation id and a valid provider config to arm the checkout.</Text>
       )}
