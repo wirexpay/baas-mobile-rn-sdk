@@ -1,8 +1,8 @@
 # Wirex Mobile SDK for React Native — Integration Guide
 
-One npm package, four sealed surfaces: card **Reveal**, card **Collect**, **3-D Secure** and **Wallet** top-up with Apple Pay and Google Pay. Card values stay in native views and never cross the JavaScript bridge. Every snippet below is type-checked against `@wirexapp/mobile-sdk` 0.3.7.
+One npm package, four sealed surfaces: card **Reveal**, card **Collect**, **3-D Secure** and **Wallet** top-up with Apple Pay and Google Pay. Card values stay in native views and never cross the JavaScript bridge. Every snippet below is type-checked against `@wirexapp/mobile-sdk` 0.3.12.
 
-<!-- badges: React Native · TypeScript | @wirexapp/mobile-sdk 0.3.7 · npm | Reveal · Collect · 3-D Secure · Wallet -->
+<!-- badges: React Native · TypeScript | @wirexapp/mobile-sdk 0.3.12 · npm | Reveal · Collect · 3-D Secure · Wallet -->
 
 ## 1. What the SDK does
 
@@ -30,7 +30,7 @@ Your app supplies two things:
 - Expo: a development build is required. Expo Go cannot load native modules.
 
 ```sh
-npm install @wirexapp/mobile-sdk@0.3.7
+npm install @wirexapp/mobile-sdk@0.3.12
 cd ios && pod install
 ```
 
