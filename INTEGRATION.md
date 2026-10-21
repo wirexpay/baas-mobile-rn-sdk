@@ -1,8 +1,8 @@
 # Wirex Mobile SDK for React Native — Integration Guide
 
-One npm package, four sealed surfaces: card **Reveal**, card **Collect**, **3-D Secure** and **Wallet** top-up with Apple Pay and Google Pay. Card values stay in native views and never cross the JavaScript bridge. Every snippet below is type-checked against `@wirexapp/mobile-sdk` 0.3.12.
+One npm package, four sealed surfaces: card **Reveal**, card **Collect**, **3-D Secure** and **Wallet** top-up with Apple Pay and Google Pay. Card values stay in native views and never cross the JavaScript bridge. Every snippet below is type-checked against `@wirexapp/mobile-sdk` 0.3.13.
 
-<!-- badges: React Native · TypeScript | @wirexapp/mobile-sdk 0.3.12 · npm | Reveal · Collect · 3-D Secure · Wallet -->
+<!-- badges: React Native · TypeScript | @wirexapp/mobile-sdk 0.3.13 · npm | Reveal · Collect · 3-D Secure · Wallet -->
 
 ## 1. What the SDK does
 
@@ -30,7 +30,7 @@ Your app supplies two things:
 - Expo: a development build is required. Expo Go cannot load native modules.
 
 ```sh
-npm install @wirexapp/mobile-sdk@0.3.12
+npm install @wirexapp/mobile-sdk@0.3.13
 cd ios && pod install
 ```
 
@@ -312,7 +312,7 @@ export const appearance: WirexRevealAppearance = {        // flat token map; the
   colorText: '#FFFFFF', colorLabel: '#9AA0B5', colorFocus: '#5753EA', colorBackground: '#1B1E2B',
   fontFamily: 'Inter', fontSizeBase: 16, fontWeightBase: 'medium', borderRadius: 8, controlMinHeight: 44,
 };
-export const revealStrings: WirexRevealStrings = { fieldLabels: { pan: 'Card number', cvv: 'CVV' }, copy: 'Copy', copied: 'Copied' };
+export const revealStrings: WirexRevealStrings = { fieldLabels: { pan: 'Card number', cvv: 'CVV' }, maskedSegmentGlyph: '*', copy: 'Copy', copied: 'Copied' };
 export const collectStrings: WirexCollectStrings = {
   labels: { number: 'Card number', expiry: 'Expiry', cvv: 'CVV' },
   errors: { '*': { incomplete: 'Required', invalid: 'Check this field' }, expiry: { expired: 'Card expired' } },
@@ -323,7 +323,7 @@ export const walletBranding: WirexWalletBranding = { logo: 'hidden', processingD
 ```
 
 - Card surfaces take `themeMode` (`'light' | 'dark'`, default light) and a flat `appearance` map: colours (`colorText`, `colorLabel`, `colorPlaceholder`, `colorError`, `colorFocus`, `colorBackground`, `colorBorder`, `surfaceColor`), typography (`fontFamily`, `fontSizeBase`, `fontSizeLabel`, `lineHeightBase`, `lineHeightLabel`, `fontWeightBase`, `fontWeightLabel`), geometry (`borderRadius`, `borderWidth`, `spacingUnit`, `paddingHorizontal`, `paddingVertical`, `spacingLabel`, `spacingError`, `iconSize`, `controlMinHeight`). Icons are any React Native image source: `WirexRevealIcons { copy, copied }`, `WirexCollectIcons { Visa, MasterCard }`, `WirexThreeDSIcons { close }`.
-- Strings: `WirexRevealStrings` (field labels, masked placeholder, copy texts), `WirexCollectStrings` (labels, placeholders, per-field errors with a `'*'` default), `WirexThreeDSStrings { title, close, loading }`.
+- Strings: `WirexRevealStrings` (field labels, `maskedPlaceholder` for plain fields, `maskedSegmentGlyph` drawn in every PIN cell while masked, default `'*'`, copy texts), `WirexCollectStrings` (labels, placeholders, per-field errors with a `'*'` default), `WirexThreeDSStrings { title, close, loading }`.
 - Wallet: `appearance` passes CSS variables to the frame; `buttons` sets the Apple Pay `style`/`type` and Google Pay `color`/`type`; `branding` sets the logo (`'wirex' | 'hidden' | 'custom'` with a data-URI `logoImage`), the processing disclosure and a privacy URL; `strings` overrides the 11 labels of the checkout.
 - **Sizing.** Reveal rows report `onNaturalHeight`; the collect form sizes itself; the wallet emits a `naturalHeight` event. Apply those heights instead of hardcoding them.
 

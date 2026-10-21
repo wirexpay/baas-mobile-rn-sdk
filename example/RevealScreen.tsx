@@ -32,7 +32,7 @@ import {radius, T} from './theme';
 // and a segmented empty grid reads as broken. A plastic-card integration adds 'pin' back.
 const FIELDS: WirexRevealField[] = ['cardholderName', 'pan', 'expiry', 'cvv'];
 
-// The row headers this screen draws itself (uppercase, Wirex One style).
+// The row headers this screen draws itself (uppercase).
 const LABELS: Record<WirexRevealField, string> = {
   cardholderName: 'Cardholder',
   pan: 'Card number',
