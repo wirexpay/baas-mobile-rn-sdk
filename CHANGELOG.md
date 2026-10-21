@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.13
+
+Reveal
+- A row masked when the app leaves the foreground keeps your reveal request and draws again on return, as long as the session still holds the value. Past the session's 120 s lifetime the row stays masked until you load again.
+- A hidden segmented field (PIN) shows the masked placeholder's glyph in every cell instead of empty boxes.
+- iOS floor is 15.0 on the pod.
+- React Native 0.86 / Expo 57 supported: the Android bindings follow the host's event-dispatcher API.
+- Android: PIN cells sized like iOS; card entry no longer leaks through a screen capture.
+- Android: Reveal: PIN cells fill the row at `controlMinHeight` height in a host box of exactly that height: a blank label collapses and a field without a copy control gives the copy slot to the value.
+- Reveal: new string `maskedSegmentGlyph`, drawn in every PIN cell while masked (default `*`; pass `•` for dots).
+
+## 0.3.7
+
+- 3-D Secure: presents the card issuer's authentication page a top-up asks for and reports the outcome.
+- Wallet top-up: token mode. The checkout can execute the top-up itself and report executing / executed / failed instead of handing back a token. Standalone launch helpers build the checkout URL and parse the return link for hosts that open the checkout in a browser tab; the return link is matched at a path boundary.
+- Privacy manifests ship with the iOS artifacts.
+- The 3-D Secure bridge builds in hosts that link pods as static libraries.
+
 ## 0.3.1
 
 First public release.
