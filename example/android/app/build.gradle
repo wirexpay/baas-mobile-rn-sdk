@@ -79,7 +79,7 @@ android {
 
     namespace "com.wirexapp.baas.example"
     defaultConfig {
-        applicationId "com.wirexapp.baas.example.rn"
+        applicationId "com.wirexapp.baas.example.android.rn"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
