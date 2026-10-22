@@ -89,7 +89,10 @@ export default function App(): React.JSX.Element {
           <Pane show={tab === 'Appearance'}><AppearanceScreen /></Pane>
         </View>
 
-        <View style={styles.tabs}>
+        {/* The tab bar carries its OWN bottom safe-area inset, so the gesture pill or the 3-button
+            navigation bar (edge-to-edge from Android 15 / targetSdk 35) sits below it rather than on
+            top of it. The bar's own surface color fills the inset area. */}
+        <SafeAreaView edges={['bottom']} style={styles.tabs}>
           {TABS.map((name) => {
             const on = tab === name;
             return (
@@ -100,7 +103,7 @@ export default function App(): React.JSX.Element {
               </TouchableOpacity>
             );
           })}
-        </View>
+        </SafeAreaView>
       </SafeAreaView>
     </SafeAreaProvider>
   );
