@@ -108,6 +108,47 @@ export const resetConfig = (): void => {
 /** `test` everywhere but the production name. */
 export const isTestMode = (): boolean => settings.environment !== 'production';
 
+const SEED_SECRETS = new Set<string>(['bearer', 'actionToken', 'checkoutToken']);
+/** The native examples name identity `wallet` / `email`; one seed link serves every platform. */
+const SEED_ALIASES: Record<string, string> = {wallet: 'userWallet', email: 'userEmail'};
+
+/**
+ * Applies a `wirexqa://seed?d=<base64url(JSON)>` link — the deep link the example registers — from the
+ * launch URL or from text pasted into the Config tab. Returns how many values were set, or null when the
+ * text is not a seed link (other scheme, no `d`, undecodable). Any key the Config holds is applied, the
+ * bearer and action token included; the payload is one base64 param (no `&`/`+` to mangle). A real
+ * integration mints these from its own auth and the user's wallet; this only saves typing on a test
+ * device — every value stays in memory only.
+ */
+export const applySeedLink = (url: string | null | undefined): number | null => {
+  const text = (url ?? '').trim();
+  if (!text.startsWith('wirexqa://seed')) return null;
+  try {
+    const d = text.split('d=')[1]?.split('&')[0];
+    if (!d) return null;
+    const b64 = decodeURIComponent(d).replace(/-/g, '+').replace(/_/g, '/');
+    const atob = (globalThis as unknown as {atob: (data: string) => string}).atob;
+    const json = JSON.parse(atob(b64 + '=='.slice(0, (4 - (b64.length % 4)) % 4))) as Record<string, unknown>;
+    let applied = 0;
+    for (const [rawKey, value] of Object.entries(json)) {
+      if (value == null || `${value}` === '') continue;
+      const key = SEED_ALIASES[rawKey] ?? rawKey;
+      if (SEED_SECRETS.has(key)) {
+        secrets[key as keyof ExampleSecrets] = `${value}`;
+      } else if (key in DEFAULT_SETTINGS) {
+        (settings as unknown as Record<string, unknown>)[key] = key === 'devDisableScreenProtection' ? `${value}` === 'true' : `${value}`;
+      } else {
+        continue;
+      }
+      applied++;
+    }
+    notify();
+    return applied;
+  } catch {
+    return null;
+  }
+};
+
 /** display amount (e.g. "10.00") → base-units string (amount * 10^decimals), without float loss. */
 function toBaseUnits(amount: string, decimals: number): string {
   const [whole, frac = ''] = amount.split('.');
