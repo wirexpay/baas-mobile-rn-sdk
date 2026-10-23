@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.14
+
+- Wallet: never coalesce checkout events on Android, so the checkout box resizes correctly after the Google Pay button mounts (the button was cut and the privacy line hidden). iOS was unaffected.
+
 ## 0.3.13
 
 Reveal
