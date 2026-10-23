@@ -12,7 +12,7 @@ import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import AppearanceScreen from './AppearanceScreen';
 import CollectScreen from './CollectScreen';
 import ConfigScreen from './ConfigScreen';
-import {getSettings, onAppearanceChange, onConfigChange, setSecret, setSetting} from './exampleConfig';
+import {applySeedLink, getSettings, onAppearanceChange, onConfigChange} from './exampleConfig';
 import RevealScreen from './RevealScreen';
 import {T} from './theme';
 import ThreeDSScreen from './ThreeDSScreen';
@@ -36,29 +36,11 @@ export default function App(): React.JSX.Element {
   }, []);
 
   // A `wirexqa://seed?d=<base64url(JSON)>` deep link prefills the Config, so a partner or QA can arm a
-  // device without typing — any parameter, the bearer and action token included. The payload is one
-  // base64 param (no `&`/`+` to mangle). A real integration mints these from its own auth and the
-  // user's wallet; the example keeps every value in memory only (nothing is persisted or hard-coded).
+  // device without typing — any parameter, the bearer and action token included (see `applySeedLink`).
+  // The Config tab has a field for the same link, for a device where opening it is awkward.
   useEffect(() => {
-    const secretKeys = new Set(['bearer', 'actionToken', 'checkoutToken']);
-    const applySeed = (url: string | null): void => {
-      if (!url || !url.startsWith('wirexqa://seed')) return;
-      try {
-        const d = url.split('d=')[1];
-        if (!d) return;
-        const b64 = decodeURIComponent(d).replace(/-/g, '+').replace(/_/g, '/');
-        const json = JSON.parse(global.atob(b64 + '=='.slice(0, (4 - (b64.length % 4)) % 4)));
-        for (const [key, value] of Object.entries(json)) {
-          if (value == null || `${value}` === '') continue;
-          if (secretKeys.has(key)) setSecret(key as 'bearer', `${value}`);
-          else setSetting(key as 'chainId', `${value}` as never);
-        }
-      } catch {
-        // ignore a malformed seed link
-      }
-    };
-    void Linking.getInitialURL().then(applySeed);
-    const sub = Linking.addEventListener('url', (e) => applySeed(e.url));
+    void Linking.getInitialURL().then(applySeedLink);
+    const sub = Linking.addEventListener('url', (e) => applySeedLink(e.url));
     return () => sub.remove();
   }, []);
   const env = getSettings().environment;

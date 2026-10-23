@@ -6,12 +6,13 @@
  * Non-secret settings are plain fields. Secrets (bearer, step-up token, checkout token) are entered the
  * same way but held in memory only; a note says so. "Reset" clears everything back to defaults.
  */
-import React, {useEffect, useReducer} from 'react';
+import React, {useEffect, useReducer, useState} from 'react';
 import {ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View} from 'react-native';
 
 import {
   type ExampleEnvironment,
   type ExampleSettings,
+  applySeedLink,
   getSecret,
   getSettings,
   onConfigChange,
@@ -46,11 +47,44 @@ export default function ConfigScreen(): React.JSX.Element {
   const [, force] = useReducer((n: number) => n + 1, 0);
   useEffect(() => onConfigChange(force), []);
   const settings = getSettings();
+  // The same `wirexqa://seed?d=…` link the app opens as a deep link, pasted instead — for a device
+  // where opening the link is awkward (a chat that strips the scheme, a locked-down browser).
+  const [seed, setSeed] = useState('');
+  const [seedStatus, setSeedStatus] = useState<{text: string; ok: boolean} | null>(null);
+  const applySeed = (): void => {
+    const applied = applySeedLink(seed);
+    setSeedStatus(applied == null ? {text: 'Not a wirexqa://seed link', ok: false} : {text: `Applied ${applied} value${applied === 1 ? '' : 's'}`, ok: true});
+    if (applied != null) setSeed('');
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Configuration</Text>
       <Text style={styles.caption}>Type a partner's parameters here; every screen reads them live. Secrets stay in memory only.</Text>
+
+      <Text style={styles.section}>Seed link</Text>
+      <View style={styles.group}>
+        <TextInput
+          style={styles.input}
+          value={seed}
+          onChangeText={setSeed}
+          onSubmitEditing={applySeed}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          returnKeyType="done"
+          placeholder="wirexqa://seed?d=…"
+          placeholderTextColor={T.textFaint}
+        />
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.apply} onPress={applySeed} activeOpacity={0.85}>
+            <Text style={styles.applyText}>Apply</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.hint, seedStatus ? {color: seedStatus.ok ? T.green : T.pink} : null]}>
+          {seedStatus ? seedStatus.text : 'Paste the link the QA kit prints (the same one the app opens as a deep link); Apply fills every field below.'}
+        </Text>
+      </View>
 
       <Text style={styles.section}>Environment</Text>
       <View style={styles.row}>
@@ -140,6 +174,8 @@ const styles = StyleSheet.create({
   label: {fontSize: 14, fontWeight: '700', color: T.text},
   hint: {fontSize: 12, color: T.textFaint, marginTop: 1},
   input: {marginTop: 6, borderWidth: 1, borderColor: T.border, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 11, fontSize: 15, color: T.text, backgroundColor: T.surfaceAlt},
+  apply: {paddingVertical: 11, paddingHorizontal: 20, borderRadius: radius.md, backgroundColor: T.accent},
+  applyText: {color: T.onAccent, fontWeight: '800'},
   reset: {marginTop: 26, alignSelf: 'flex-start', paddingVertical: 11, paddingHorizontal: 20, borderRadius: radius.md, backgroundColor: '#FF407F22', borderWidth: 1, borderColor: T.pink},
   resetText: {color: T.pink, fontWeight: '800'},
 });
