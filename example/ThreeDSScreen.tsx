@@ -21,6 +21,9 @@ export default function ThreeDSScreen(): React.JSX.Element {
   const [outcome, setOutcome] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const busy = useRef(false);
+  // Unmount (the tab is left) destroys the session: the challenge view releases the window's capture
+  // protection and the next start begins clean.
+  useEffect(() => () => { void session?.destroy(); }, [session]);
 
   const start = useCallback(async () => {
     if (busy.current || !url.trim()) return;
