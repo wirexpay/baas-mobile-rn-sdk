@@ -5,16 +5,18 @@
  *
  * Paste an orchestrator URL below (from a real top-up on your backend) and press Start.
  */
-import React, {useCallback, useRef, useState} from 'react';
+import React, {useCallback, useRef, useState, useEffect} from 'react';
 import {StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 
 import {WirexThreeDS, WirexThreeDSView, type WirexThreeDSSession} from '@wirexapp/mobile-sdk';
 
-import {isTestMode} from './exampleConfig';
+import {isTestMode, getSettings, onConfigChange} from './exampleConfig';
 import {radius, T} from './theme';
 
 export default function ThreeDSScreen(): React.JSX.Element {
-  const [url, setUrl] = useState('');
+  // Seeded from the Config tab (`threeDsUrl`, which a seed link can carry); still editable here.
+  const [url, setUrl] = useState(getSettings().threeDsUrl);
+  useEffect(() => onConfigChange(() => { const seeded = getSettings().threeDsUrl; if (seeded) setUrl(seeded); }), []);
   const [session, setSession] = useState<WirexThreeDSSession | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

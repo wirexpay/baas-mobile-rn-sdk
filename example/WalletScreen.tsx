@@ -28,7 +28,7 @@ import {
   type WirexWalletProviderConfig,
 } from '@wirexapp/mobile-sdk';
 
-import {fetchTopUpEstimate, getSecret, getSettings} from './exampleConfig';
+import {fetchTopUpEstimate, getSecret, getSettings, onConfigChange} from './exampleConfig';
 import {radius, T} from './theme';
 
 // Starter provider block. It has no `probe_url` / `checkout_url`, so the availability probe cannot run
@@ -43,7 +43,9 @@ const RETURN_URL = 'https://wirex-sdk-example.wirexapp.tech/wallet-return';
 
 export default function WalletScreen(): React.JSX.Element {
   const settings = getSettings();
-  const [estimationId, setEstimationId] = useState('');
+  // Seeded from the Config tab (`estimationId`, which a seed link can carry); "Fetch estimate" overwrites it.
+  const [estimationId, setEstimationId] = useState(settings.estimationId);
+  useEffect(() => onConfigChange(() => { const seeded = getSettings().estimationId; if (seeded) setEstimationId(seeded); }), []);
   const [providerJson, setProviderJson] = useState(PLACEHOLDER_PROVIDER);
   const [tokenMode, setTokenMode] = useState(false);
   const [events, setEvents] = useState<string[]>([]);
