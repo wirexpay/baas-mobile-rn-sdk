@@ -31,7 +31,13 @@ export default function ThreeDSScreen(): React.JSX.Element {
     setOutcome(null);
     setError(null);
     try {
-      await WirexThreeDS.configure({testMode: isTestMode(), logging: 'info'});
+      await WirexThreeDS.configure({
+        testMode: isTestMode(),
+        logging: 'info',
+        // DEV/TEST ONLY — the Config tab's "Disable screen protection" switch, the same one Collect
+        // reads. On = the challenge stays visible while the screen is recorded (device clouds).
+        dangerouslyDisableScreenProtection: getSettings().devDisableScreenProtection,
+      });
       const active = await WirexThreeDS.createSession(url.trim());
       setSession(active);
       await active.start();
