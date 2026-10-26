@@ -12,6 +12,7 @@ import {
   WirexCollectFormView,
   type WirexCollectFormHandle,
   type WirexCollectState,
+  type WirexCollectProfile,
 } from '@wirexapp/mobile-sdk';
 
 import {
@@ -60,12 +61,21 @@ export default function CollectScreen(): React.JSX.Element {
     return onConfigChange(() => void configure());
   }, [configure]);
 
+  // Which form to draw: `topup` (number, expiry, CVV, name) or `oct-destination` (number + name, no CVV
+  // / expiry — a card money is SENT to). The native and Flutter examples offer the same two.
+  const [profile, setProfile] = useState<WirexCollectProfile>('topup');
+
   const tokenize = useCallback(async () => {
     const handle = form.current;
     if (!handle) return;
     setSubmitting(true);
     setResult('Tokenising…');
     try {
+      if (profile === 'oct-destination') {
+        const oct = await handle.tokenizeOctDestination({cardLabel: 'QA card', isSaved: false, isThirdParty: false});
+        setResult(`Linked (OCT) · ${oct.brand} •••• ${oct.last4}`);
+        return;
+      }
       const token = await handle.tokenizeTopUp({
         billingDetails: {line1: '1 Example Street', zipCode: 'SW1A 1AA', city: 'London', country: 'GB'},
       });
@@ -76,7 +86,7 @@ export default function CollectScreen(): React.JSX.Element {
     } finally {
       setSubmitting(false);
     }
-  }, []);
+  }, [profile]);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -90,10 +100,18 @@ export default function CollectScreen(): React.JSX.Element {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
+      <View style={styles.profiles}>
+        {(['topup', 'oct-destination'] as WirexCollectProfile[]).map((p) => (
+          <TouchableOpacity key={p} style={[styles.profileChip, profile === p && styles.profileChipOn]} onPress={() => { setProfile(p); setState(null); setResult(null); }} activeOpacity={0.85}>
+            <Text style={[styles.profileChipText, profile === p && styles.profileChipTextOn]}>{p}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {ready ? (
-        <View style={styles.card}>
+        <View style={styles.card} key={profile}>
           <WirexCollectFormView
-            profile="topup"
+            profile={profile}
             appearance={getAppearance()}
             themeMode={getThemeMode()}
             onReady={(handle: WirexCollectFormHandle) => (form.current = handle)}
@@ -155,6 +173,11 @@ const styles = StyleSheet.create({
   card: {marginTop: 16, backgroundColor: T.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: T.border, padding: 14},
   form: {width: '100%'},
   note: {fontSize: 13, color: T.textDim, marginTop: 16},
+  profiles: {flexDirection: 'row', gap: 8, marginTop: 12},
+  profileChip: {paddingVertical: 7, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface},
+  profileChipOn: {backgroundColor: T.accent, borderColor: T.accent},
+  profileChipText: {color: T.textDim, fontWeight: '700', fontSize: 12},
+  profileChipTextOn: {color: T.onAccent},
   chips: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14},
   chip: {paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, borderWidth: 1},
   chipText: {color: T.text, fontSize: 12, fontWeight: '600'},

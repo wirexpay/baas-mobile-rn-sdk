@@ -116,7 +116,7 @@ export const isTestMode = (): boolean => settings.environment !== 'production';
 
 const SEED_SECRETS = new Set<string>(['bearer', 'actionToken', 'checkoutToken']);
 /** The native examples name identity `wallet` / `email`; one seed link serves every platform. */
-const SEED_ALIASES: Record<string, string> = {wallet: 'userWallet', email: 'userEmail'};
+const SEED_ALIASES: Record<string, string> = {wallet: 'userWallet', email: 'userEmail', disableScreenProtection: 'devDisableScreenProtection'};
 
 /**
  * Applies a `wirexqa://seed?d=<base64url(JSON)>` link — the deep link the example registers — from the
