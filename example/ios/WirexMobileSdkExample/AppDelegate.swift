@@ -31,6 +31,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     return true
   }
+
+  /// A `wirexqa://` / `wirexqa-rn://` seed deep link (Info.plist CFBundleURLTypes) reaches JS through
+  /// `Linking` only when the app delegate forwards it.
+  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    RCTLinkingManager.application(app, open: url, options: options)
+  }
 }
 
 class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {

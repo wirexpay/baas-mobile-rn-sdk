@@ -61,12 +61,15 @@ export default function App(): React.JSX.Element {
           </View>
         </View>
 
-        {/* All panes stay mounted so a session or a typed value survives a tab switch. */}
+        {/* Panes stay mounted so a session or a typed value survives a tab switch — except 3DS: its
+            challenge view keeps the WINDOW capture-protected while attached, which would blank every
+            other tab's screenshots after a step-up, so that pane unmounts (and destroys its session)
+            when it is not the one shown. */}
         <View style={styles.body}>
           <Pane show={tab === 'Config'}><ConfigScreen /></Pane>
           <Pane show={tab === 'Reveal'}><RevealScreen /></Pane>
           <Pane show={tab === 'Collect'}><CollectScreen /></Pane>
-          <Pane show={tab === '3DS'}><ThreeDSScreen /></Pane>
+          <Pane show={tab === '3DS'}>{tab === '3DS' ? <ThreeDSScreen /> : null}</Pane>
           <Pane show={tab === 'Wallet'}><WalletScreen /></Pane>
           <Pane show={tab === 'Appearance'}><AppearanceScreen /></Pane>
         </View>

@@ -34,6 +34,8 @@ const SETTING_FIELDS: {key: FieldKey; label: string; hint?: string}[] = [
   {key: 'walletAmount', label: 'Wallet amount', hint: 'top-up quote the Checkout arms with'},
   {key: 'walletCurrency', label: 'Wallet currency'},
   {key: 'walletProvider', label: 'Wallet provider', hint: "estimate's provider name"},
+  {key: 'estimationId', label: 'Estimation ID', hint: 'Wallet — from Fetch estimate, the kit or a seed link'},
+  {key: 'threeDsUrl', label: '3DS url', hint: '3DS — three_ds_state.url; the 3DS tab starts with it'},
   {key: 'baasApiUrl', label: 'BaaS API URL', hint: 'for "Fetch estimate" — pricing is your backend\'s job'},
 ];
 

@@ -38,6 +38,10 @@ export interface ExampleSettings {
   walletCurrency: string;
   /** The estimate's provider NAME; the frame resolves its block from the provider config by it. */
   walletProvider: string;
+  /** Wallet: the estimation id the Checkout arms with (from "Fetch estimate", the kit, or a seed link). */
+  estimationId: string;
+  /** 3DS: the orchestrator URL (`three_ds_state.url`) the 3DS tab starts with. A seed link can carry it. */
+  threeDsUrl: string;
   /** The Wirex BaaS API base URL, for the "Fetch estimate" helper on the Wallet tab. Pricing a top-up
    *  is your BACKEND's job; the helper calls the documented BaaS API with your bearer so you can
    *  verify the token and get a real estimationId without a backend. Wirex gives you the base for your
@@ -70,6 +74,8 @@ const DEFAULT_SETTINGS: ExampleSettings = {
   walletAmount: '10.00',
   walletCurrency: 'EUR',
   walletProvider: '',
+  estimationId: '',
+  threeDsUrl: '',
   baasApiUrl: '',
   devDisableScreenProtection: false,
 };
@@ -110,7 +116,7 @@ export const isTestMode = (): boolean => settings.environment !== 'production';
 
 const SEED_SECRETS = new Set<string>(['bearer', 'actionToken', 'checkoutToken']);
 /** The native examples name identity `wallet` / `email`; one seed link serves every platform. */
-const SEED_ALIASES: Record<string, string> = {wallet: 'userWallet', email: 'userEmail'};
+const SEED_ALIASES: Record<string, string> = {wallet: 'userWallet', email: 'userEmail', disableScreenProtection: 'devDisableScreenProtection'};
 
 /**
  * Applies a `wirexqa://seed?d=<base64url(JSON)>` link — the deep link the example registers — from the
@@ -122,7 +128,9 @@ const SEED_ALIASES: Record<string, string> = {wallet: 'userWallet', email: 'user
  */
 export const applySeedLink = (url: string | null | undefined): number | null => {
   const text = (url ?? '').trim();
-  if (!text.startsWith('wirexqa://seed')) return null;
+  // `wirexqa-rn://` is this example's own scheme (iOS opens ONE app per scheme, so each example has one);
+  // `wirexqa://` is the shared one every example also registers.
+  if (!/^wirexqa(-rn)?:\/\/seed/.test(text)) return null;
   try {
     const d = text.split('d=')[1]?.split('&')[0];
     if (!d) return null;
