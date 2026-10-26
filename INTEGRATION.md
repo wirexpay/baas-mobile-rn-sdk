@@ -1,8 +1,8 @@
 # Wirex Mobile SDK for React Native — Integration Guide
 
-One npm package, four sealed surfaces: card **Reveal**, card **Collect**, **3-D Secure** and **Wallet** top-up with Apple Pay and Google Pay. Card values stay in native views and never cross the JavaScript bridge. Every snippet below is type-checked against `@wirexapp/mobile-sdk` 0.3.14.
+One npm package, four sealed surfaces: card **Reveal**, card **Collect**, **3-D Secure** and **Wallet** top-up with Apple Pay and Google Pay. Card values stay in native views and never cross the JavaScript bridge. Every snippet below is type-checked against `@wirexapp/mobile-sdk` 0.3.15.
 
-<!-- badges: React Native · TypeScript | @wirexapp/mobile-sdk 0.3.14 · npm | Reveal · Collect · 3-D Secure · Wallet -->
+<!-- badges: React Native · TypeScript | @wirexapp/mobile-sdk 0.3.15 · npm | Reveal · Collect · 3-D Secure · Wallet -->
 
 ## 1. What the SDK does
 
@@ -30,7 +30,7 @@ Your app supplies two things:
 - Expo: a development build is required. Expo Go cannot load native modules.
 
 ```sh
-npm install @wirexapp/mobile-sdk@0.3.14
+npm install @wirexapp/mobile-sdk@0.3.15
 cd ios && pod install
 ```
 
@@ -140,7 +140,7 @@ export function RevealRow({ session, field }: { session: WirexRevealSession; fie
 
 > **Gotcha · sizing** A native row cannot be sized from JavaScript. It reports its content height through `onNaturalHeight`; apply it to the row. A box shorter than the content clips the value.
 
-> **Note · simulator** The value is drawn in a secure, capture-proof layer that the iOS Simulator renders blank. That is the PCI protection working. For simulator development only, pass `dangerouslyDisableScreenProtection: true` to `configure(...)`. Never ship it on.
+> **Note · simulator** The value is drawn in a secure, capture-proof layer that the iOS Simulator renders blank. That is the PCI protection working. For simulator development only, pass `dangerouslyDisableScreenProtection: true` to `configure(...)`; `WirexThreeDS.configure({ dangerouslyDisableScreenProtection: true })` is the same switch for the 3-D Secure challenge (no `FLAG_SECURE` on Android, no cover while the screen is recorded on iOS). Never ship it on.
 
 ## 5. Collect {creds}
 

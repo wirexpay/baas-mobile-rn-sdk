@@ -120,8 +120,9 @@ export default function ConfigScreen(): React.JSX.Element {
           <View style={{flex: 1}}>
             <Text style={styles.label}>Disable screen protection</Text>
             <Text style={styles.hint}>
-              DEV ONLY: draw revealed PAN/CVV on the iOS Simulator (the secure layer renders blank there).
-              Leave OFF on a real device / any shippable build.
+              DEV ONLY: draw revealed PAN/CVV on the iOS Simulator (the secure layer renders blank there)
+              and keep the 3DS challenge visible while the screen is recorded (device clouds). Leave OFF
+              on a real device / any shippable build.
             </Text>
           </View>
           <Switch

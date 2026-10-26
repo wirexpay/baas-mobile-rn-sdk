@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.15
+
+- 3-D Secure: `dangerouslyDisableScreenProtection` in `WirexThreeDS.configure()`, the same switch Collect has. Android applies no `FLAG_SECURE` while a challenge is on screen; iOS does not cover the page while the screen is recorded or mirrored. For automated UI tests and device clouds; off by default.
+- Native SDKs 0.3.15.
+
 ## 0.3.14
 
 - Wallet: never coalesce checkout events on Android, so the checkout box resizes correctly after the Google Pay button mounts (the button was cut and the privacy line hidden). iOS was unaffected.
