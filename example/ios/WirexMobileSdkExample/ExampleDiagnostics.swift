@@ -46,19 +46,30 @@ final class ExampleDiagnostics: NSObject {
     return formatter
   }()
 
-  /// This process's log entries since it started: the SDK's own (subsystem/category/message naming
-  /// Wirex) when there are any, otherwise everything the process logged, capped to the last 4000.
+  /// When this process started, from the kernel: the native log is read from here, not from boot.
+  static func processStart() -> Date {
+    var info = kinfo_proc()
+    var size = MemoryLayout<kinfo_proc>.stride
+    var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+    guard sysctl(&mib, 4, &info, &size, nil, 0) == 0 else { return Date().addingTimeInterval(-3600) }
+    let start = info.kp_proc.p_un.__p_starttime
+    return Date(timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000)
+  }
+
+  /// This process's log entries since it started: the SDK's own (a `com.wirexapp` subsystem), capped
+  /// to the last 4000. Other entries are left out unless they are errors or faults.
   private static func collect() -> String {
     do {
       let store = try OSLogStore(scope: .currentProcessIdentifier)
-      let position = store.position(timeIntervalSinceLatestBoot: 0)
+      let position = store.position(date: Self.processStart())
       let entries = try store.getEntries(at: position).compactMap { $0 as? OSLogEntryLog }
       let wirex = entries.filter {
-        $0.subsystem.lowercased().contains("wirex") || $0.category.lowercased().contains("wirex") || $0.composedMessage.contains("Wirex") || $0.composedMessage.contains("wirex")
+        $0.subsystem.range(of: "wirex", options: .caseInsensitive) != nil || $0.level == .error || $0.level == .fault
       }
-      let chosen = (wirex.isEmpty ? entries : wirex).suffix(4000)
+      if wirex.isEmpty { return "(no SDK entry and no error in the unified log this run; \(entries.count) system entries omitted)" }
+      let chosen = wirex.suffix(4000)
       let lines = chosen.map { "\(clock.string(from: $0.date)) \($0.subsystem)/\($0.category): \($0.composedMessage)" }
-      let note = wirex.isEmpty ? "(no entry names Wirex; all \(entries.count) entries of this process follow)" : "(\(wirex.count) Wirex entries of \(entries.count))"
+      let note = "(\(wirex.count) SDK entries of \(entries.count))"
       return ([note] + lines).joined(separator: "\n")
     } catch {
       return "native log unavailable: \(error)"

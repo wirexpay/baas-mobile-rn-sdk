@@ -45,11 +45,18 @@ class ExampleDiagnosticsModule(context: ReactApplicationContext) : ReactContextB
           .start()
         val lines = process.inputStream.bufferedReader().readLines()
         process.waitFor()
-        promise.resolve(lines.takeLast(MAX_LINES).joinToString("\n"))
+        val kept = lines.filter(::isWorthSharing)
+        promise.resolve("(${kept.size} SDK / error lines of ${lines.size})\n" + kept.takeLast(MAX_LINES).joinToString("\n"))
       } catch (e: Exception) {
         promise.resolve("native log unavailable: $e")
       }
     }
+  }
+
+  /** The SDK's own tags (`Wirex…`), plus every error and crash; the system's chatter is left out. */
+  private fun isWorthSharing(line: String): Boolean {
+    val level = Regex("""\s([VDIWEF])/""").find(line)?.groupValues?.get(1)
+    return line.contains("/Wirex", ignoreCase = true) || level == "E" || level == "F"
   }
 
   private companion object {
