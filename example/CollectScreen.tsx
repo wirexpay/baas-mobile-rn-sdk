@@ -5,7 +5,7 @@
  * Needs on the Config tab: environment, chainId, bearer.
  */
 import React, {useCallback, useEffect, useReducer, useRef, useState} from 'react';
-import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
 import {
   WirexCollect,
@@ -65,9 +65,15 @@ export default function CollectScreen(): React.JSX.Element {
   // / expiry — a card money is SENT to). The native and Flutter examples offer the same two.
   const [profile, setProfile] = useState<WirexCollectProfile>('topup');
 
+  // The sealed fields are native, not RN TextInputs, so RN's own keyboard handling (tap-outside
+  // dismissal, `Keyboard.dismiss()`) does not know about them: the form's `blur()` is what drops the
+  // field's focus and takes the keyboard down. The number pad has no Done key, so the host offers one.
+  const dismissKeyboard = useCallback(() => void form.current?.blur(), []);
+
   const tokenize = useCallback(async () => {
     const handle = form.current;
     if (!handle) return;
+    await handle.blur();
     setSubmitting(true);
     setResult('Tokenising…');
     try {
@@ -89,7 +95,16 @@ export default function CollectScreen(): React.JSX.Element {
   }, [profile]);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      // Taps on the buttons go through while the keyboard is up; a drag takes the keyboard down with
+      // it; the content inset grows with the keyboard so Tokenize scrolls into view on a small screen.
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      automaticallyAdjustKeyboardInsets>
+      {/* A tap on the empty space around the form drops the sealed field's focus. */}
+      <Pressable onPress={dismissKeyboard} style={styles.tapAway}>
       <View style={styles.headRow}>
         <Text style={styles.title}>Collect</Text>
         <View style={[styles.brandPill, state?.isComplete ? styles.brandOk : null]}>
@@ -139,9 +154,11 @@ export default function CollectScreen(): React.JSX.Element {
       <View style={styles.actions}>
         <Btn label={submitting ? 'Working…' : 'Tokenize'} onPress={() => void tokenize()} disabled={!state?.isComplete || submitting} primary />
         <Btn label="Clear" onPress={() => void form.current?.clear()} disabled={!ready} />
+        <Btn label="Done" onPress={dismissKeyboard} disabled={!ready} />
       </View>
 
       {result ? <Text style={styles.result}>{result}</Text> : null}
+      </Pressable>
     </ScrollView>
   );
 }
@@ -163,6 +180,7 @@ function Btn({label, onPress, primary, disabled}: {label: string; onPress: () =>
 const styles = StyleSheet.create({
   screen: {flex: 1, backgroundColor: T.bg},
   content: {padding: 16, paddingBottom: 40},
+  tapAway: {flexGrow: 1},
   headRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   title: {fontSize: 24, fontWeight: '800', color: T.text},
   sub: {fontSize: 13, color: T.textDim, marginTop: 6, lineHeight: 18},
