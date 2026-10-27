@@ -176,7 +176,8 @@ const parseSeedLink = (text: string): SeedResult => {
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {rejected: 'JSON parse failed: not an object'};
     json = parsed as Record<string, unknown>;
   } catch (e) {
-    return {rejected: `JSON parse failed: ${e instanceof Error ? e.message : String(e)}`};
+    // SECURITY: never the parser's message — it quotes the decoded payload, bearer included.
+    return {rejected: `JSON parse failed: the link looks cut short (${text.length} chars, ${decoded.length} decoded) — copy the whole link again`};
   }
   const keys: string[] = [];
   for (const [rawKey, value] of Object.entries(json)) {

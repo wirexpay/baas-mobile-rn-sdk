@@ -97,6 +97,8 @@ export default function ConfigScreen(): React.JSX.Element {
           autoCorrect={false}
           keyboardType="url"
           returnKeyType="done"
+          // Android 14+ caps a single-line field at 5000 characters; a full seed link is longer.
+          maxLength={65536}
           placeholder="wirexqa://seed?d=…"
           placeholderTextColor={T.textFaint}
         />
