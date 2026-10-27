@@ -159,8 +159,9 @@ export default function WalletScreen(): React.JSX.Element {
     return () => clearTimeout(t);
   }, [availability]);
 
+  // The inset grows with the keyboard, so the bottom of the page scrolls into view; a drag takes the keyboard down.
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets>
       <View style={styles.headRow}>
         <Text style={styles.title}>Wallet top-up</Text>
         <View style={styles.amountPill}>
