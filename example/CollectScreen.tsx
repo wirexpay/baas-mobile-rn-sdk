@@ -103,8 +103,9 @@ export default function CollectScreen(): React.JSX.Element {
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
       automaticallyAdjustKeyboardInsets>
-      {/* A tap on the empty space around the form drops the sealed field's focus. */}
-      <Pressable onPress={dismissKeyboard} style={styles.tapAway}>
+      {/* A tap on the text around the form drops the sealed field's focus. The form itself is NOT
+          inside a Pressable: a JS responder over the native form would cancel its touches. */}
+      <Pressable onPress={dismissKeyboard}>
       <View style={styles.headRow}>
         <Text style={styles.title}>Collect</Text>
         <View style={[styles.brandPill, state?.isComplete ? styles.brandOk : null]}>
@@ -122,6 +123,7 @@ export default function CollectScreen(): React.JSX.Element {
           </TouchableOpacity>
         ))}
       </View>
+      </Pressable>
 
       {ready ? (
         <View style={styles.card} key={profile}>
@@ -138,6 +140,7 @@ export default function CollectScreen(): React.JSX.Element {
         <Text style={styles.note}>Configuring…</Text>
       )}
 
+      <Pressable onPress={dismissKeyboard}>
       {/* Per-field validity, so the sealed form's state is visible. */}
       {state?.fields?.length ? (
         <View style={styles.chips}>
@@ -180,7 +183,6 @@ function Btn({label, onPress, primary, disabled}: {label: string; onPress: () =>
 const styles = StyleSheet.create({
   screen: {flex: 1, backgroundColor: T.bg},
   content: {padding: 16, paddingBottom: 40},
-  tapAway: {flexGrow: 1},
   headRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   title: {fontSize: 24, fontWeight: '800', color: T.text},
   sub: {fontSize: 13, color: T.textDim, marginTop: 6, lineHeight: 18},
