@@ -9,8 +9,10 @@
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-WirexMobileSdkExample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-WirexMobileSdkExample.a */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		417CBAD72D95FE301E1CB175 /* ExampleDiagnostics.m in Sources */ = {isa = PBXBuildFile; fileRef = 14CD76EEAFADC06AB7064787 /* ExampleDiagnostics.m */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		AC128DBF0B803BFFE98FEB94 /* ExampleDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD73A8414516B50915D57 /* ExampleDiagnostics.swift */; };
 		C93FEC2A05B21CEE34FB7F35 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
@@ -19,6 +21,8 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = WirexMobileSdkExample/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = WirexMobileSdkExample/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = WirexMobileSdkExample/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		14CD76EEAFADC06AB7064787 /* ExampleDiagnostics.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = ExampleDiagnostics.m; path = WirexMobileSdkExample/ExampleDiagnostics.m; sourceTree = "<group>"; };
+		32CFD73A8414516B50915D57 /* ExampleDiagnostics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExampleDiagnostics.swift; path = WirexMobileSdkExample/ExampleDiagnostics.swift; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-WirexMobileSdkExample.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WirexMobileSdkExample.debug.xcconfig"; path = "Target Support Files/Pods-WirexMobileSdkExample/Pods-WirexMobileSdkExample.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-WirexMobileSdkExample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-WirexMobileSdkExample.release.xcconfig"; path = "Target Support Files/Pods-WirexMobileSdkExample/Pods-WirexMobileSdkExample.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-WirexMobileSdkExample.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-WirexMobileSdkExample.a"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -47,6 +51,8 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				32CFD73A8414516B50915D57 /* ExampleDiagnostics.swift */,
+				14CD76EEAFADC06AB7064787 /* ExampleDiagnostics.m */,
 			);
 			name = WirexMobileSdkExample;
 			sourceTree = "<group>";
@@ -247,6 +253,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				AC128DBF0B803BFFE98FEB94 /* ExampleDiagnostics.swift in Sources */,
+				417CBAD72D95FE301E1CB175 /* ExampleDiagnostics.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

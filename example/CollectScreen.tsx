@@ -5,7 +5,7 @@
  * Needs on the Config tab: environment, chainId, bearer.
  */
 import React, {useCallback, useEffect, useReducer, useRef, useState} from 'react';
-import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
 import {
   WirexCollect,
@@ -15,6 +15,7 @@ import {
   type WirexCollectProfile,
 } from '@wirexapp/mobile-sdk';
 
+import {describeError, diag} from './diagLog';
 import {
   exampleCredentialProvider,
   getAppearance,
@@ -40,18 +41,22 @@ export default function CollectScreen(): React.JSX.Element {
 
   const configure = useCallback(async () => {
     setError(null);
+    const {chainId, devDisableScreenProtection} = getSettings();
+    diag('sdk', `collect: configure testMode=${isTestMode()} chainId=${chainId || '(empty)'} screenProtectionDisabled=${devDisableScreenProtection}`);
     try {
       await WirexCollect.configure({
         testMode: isTestMode(),
-        chainId: getSettings().chainId,
+        chainId,
         credentials: exampleCredentialProvider,
         logging: 'info',
         // DEV/TEST ONLY: secure input layer renders blank on the iOS simulator; turn this on (Config
         // tab) so the collect fields are visible there. Off by default — never ship it on.
-        dangerouslyDisableScreenProtection: getSettings().devDisableScreenProtection,
+        dangerouslyDisableScreenProtection: devDisableScreenProtection,
       });
+      diag('sdk', 'collect: configured');
       setReady(true);
     } catch (e) {
+      diag('err', `collect: configure failed: ${describeError(e)}`);
       setError(String(e));
     }
   }, []);
@@ -65,31 +70,68 @@ export default function CollectScreen(): React.JSX.Element {
   // / expiry — a card money is SENT to). The native and Flutter examples offer the same two.
   const [profile, setProfile] = useState<WirexCollectProfile>('topup');
 
+  // The sealed fields are native, not RN TextInputs, so RN's own keyboard handling (tap-outside
+  // dismissal, `Keyboard.dismiss()`) does not know about them: the form's `blur()` is what drops the
+  // field's focus and takes the keyboard down. The number pad has no Done key, so the host offers one.
+  const dismissKeyboard = useCallback(() => {
+    diag('tap', `dismiss keyboard (form handle ${form.current ? 'present' : 'MISSING'})`);
+    void form.current?.blur();
+  }, []);
+
+  // One line per form report, folded: the latest validity of every field, so the log shows what the
+  // Tokenize button saw at the moment it was (or was not) pressable.
+  const onFormChange = useCallback((next: WirexCollectState) => {
+    setState(next);
+    const fields = next.fields.map((f) => `${f.field}=${f.isValid ? 'ok' : f.isEmpty ? 'empty' : `invalid(${f.error ?? '?'})`}`).join(' ');
+    diag('sdk', `collect: isComplete=${next.isComplete} brand=${next.brand} ${fields}`, 'collect-state');
+  }, []);
+
+  // The whole pipeline, step by step: the log must show whether the press reached JS at all, what the
+  // form reported at that moment, and what the native tokenise call answered.
   const tokenize = useCallback(async () => {
     const handle = form.current;
+    diag('tap', `Tokenize: profile=${profile} handle=${handle ? 'present' : 'MISSING'} isComplete=${state?.isComplete ?? 'n/a'} submitting=${submitting}`);
     if (!handle) return;
+    await handle.blur();
+    diag('sdk', 'collect: blur() done');
     setSubmitting(true);
     setResult('Tokenising…');
     try {
       if (profile === 'oct-destination') {
+        diag('sdk', 'collect: tokenizeOctDestination…');
         const oct = await handle.tokenizeOctDestination({cardLabel: 'QA card', isSaved: false, isThirdParty: false});
+        diag('sdk', `collect: tokenizeOctDestination ok brand=${oct.brand} last4=${oct.last4}`);
         setResult(`Linked (OCT) · ${oct.brand} •••• ${oct.last4}`);
         return;
       }
+      diag('sdk', 'collect: tokenizeTopUp…');
       const token = await handle.tokenizeTopUp({
         billingDetails: {line1: '1 Example Street', zipCode: 'SW1A 1AA', city: 'London', country: 'GB'},
       });
+      const tokenLength = Object.values(token).filter((v): v is string => typeof v === 'string').reduce((n, v) => Math.max(n, v.length), 0);
+      diag('sdk', `collect: tokenizeTopUp ok brand=${token.brand} last4=${token.last4} exp=${token.expiryMonth}/${token.expiryYear} (longest field ${tokenLength} chars)`);
       setResult(`Linked · ${token.brand} •••• ${token.last4} · exp ${token.expiryMonth}/${token.expiryYear}`);
     } catch (e) {
       const code = (e as {code?: string}).code ?? String(e);
+      diag('err', `collect: tokenize failed: ${describeError(e)}`);
       setResult(`Failed: ${code}`);
     } finally {
       setSubmitting(false);
     }
-  }, [profile]);
+  }, [profile, state, submitting]);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      // Taps on the buttons go through while the keyboard is up; a drag takes the keyboard down with
+      // it; the content inset grows with the keyboard so Tokenize scrolls into view on a small screen.
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      automaticallyAdjustKeyboardInsets>
+      {/* A tap on the text around the form drops the sealed field's focus. The form itself is NOT
+          inside a Pressable: a JS responder over the native form would cancel its touches. */}
+      <Pressable onPress={dismissKeyboard}>
       <View style={styles.headRow}>
         <Text style={styles.title}>Collect</Text>
         <View style={[styles.brandPill, state?.isComplete ? styles.brandOk : null]}>
@@ -102,11 +144,12 @@ export default function CollectScreen(): React.JSX.Element {
 
       <View style={styles.profiles}>
         {(['topup', 'oct-destination'] as WirexCollectProfile[]).map((p) => (
-          <TouchableOpacity key={p} style={[styles.profileChip, profile === p && styles.profileChipOn]} onPress={() => { setProfile(p); setState(null); setResult(null); }} activeOpacity={0.85}>
+          <TouchableOpacity key={p} style={[styles.profileChip, profile === p && styles.profileChipOn]} onPress={() => { diag('tap', `profile chip ${p}`); setProfile(p); setState(null); setResult(null); }} activeOpacity={0.85}>
             <Text style={[styles.profileChipText, profile === p && styles.profileChipTextOn]}>{p}</Text>
           </TouchableOpacity>
         ))}
       </View>
+      </Pressable>
 
       {ready ? (
         <View style={styles.card} key={profile}>
@@ -114,8 +157,11 @@ export default function CollectScreen(): React.JSX.Element {
             profile={profile}
             appearance={getAppearance()}
             themeMode={getThemeMode()}
-            onReady={(handle: WirexCollectFormHandle) => (form.current = handle)}
-            onChange={setState}
+            onReady={(handle: WirexCollectFormHandle) => {
+              diag('sdk', `collect: form ready (profile ${profile})`);
+              form.current = handle;
+            }}
+            onChange={onFormChange}
             style={styles.form}
           />
         </View>
@@ -123,6 +169,7 @@ export default function CollectScreen(): React.JSX.Element {
         <Text style={styles.note}>Configuring…</Text>
       )}
 
+      <Pressable onPress={dismissKeyboard}>
       {/* Per-field validity, so the sealed form's state is visible. */}
       {state?.fields?.length ? (
         <View style={styles.chips}>
@@ -136,12 +183,24 @@ export default function CollectScreen(): React.JSX.Element {
         </View>
       ) : null}
 
-      <View style={styles.actions}>
-        <Btn label={submitting ? 'Working…' : 'Tokenize'} onPress={() => void tokenize()} disabled={!state?.isComplete || submitting} primary />
-        <Btn label="Clear" onPress={() => void form.current?.clear()} disabled={!ready} />
+      {/* `onTouchStart` fires for a touch anywhere in the row, a disabled button included — so a tap on a
+          greyed-out Tokenize still leaves a line saying what the button's state was. */}
+      <View
+        style={styles.actions}
+        onTouchStart={(e) => diag('tap', `touch in Collect actions row x=${Math.round(e.nativeEvent.locationX)} y=${Math.round(e.nativeEvent.locationY)} (Tokenize disabled=${!state?.isComplete || submitting}, ready=${ready})`)}>
+        <Btn
+          label={submitting ? 'Working…' : 'Tokenize'}
+          onPressIn={() => diag('tap', 'Tokenize pressIn')}
+          onPress={() => void tokenize()}
+          disabled={!state?.isComplete || submitting}
+          primary
+        />
+        <Btn label="Clear" onPress={() => { diag('tap', 'Clear'); void form.current?.clear(); }} disabled={!ready} />
+        <Btn label="Done" onPress={dismissKeyboard} disabled={!ready} />
       </View>
 
       {result ? <Text style={styles.result}>{result}</Text> : null}
+      </Pressable>
     </ScrollView>
   );
 }
@@ -152,9 +211,9 @@ function chipStyle(f: {isValid: boolean; isEmpty: boolean}) {
   return {backgroundColor: '#FF407F22', borderColor: T.pink};
 }
 
-function Btn({label, onPress, primary, disabled}: {label: string; onPress: () => void; primary?: boolean; disabled?: boolean}): React.JSX.Element {
+function Btn({label, onPress, onPressIn, primary, disabled}: {label: string; onPress: () => void; onPressIn?: () => void; primary?: boolean; disabled?: boolean}): React.JSX.Element {
   return (
-    <TouchableOpacity style={[styles.btn, primary && styles.btnPrimary, disabled && styles.btnDisabled]} onPress={onPress} disabled={disabled} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.btn, primary && styles.btnPrimary, disabled && styles.btnDisabled]} onPress={onPress} onPressIn={onPressIn} disabled={disabled} activeOpacity={0.85}>
       <Text style={[styles.btnText, primary && styles.btnTextPrimary]}>{label}</Text>
     </TouchableOpacity>
   );

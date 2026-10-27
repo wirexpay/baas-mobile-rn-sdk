@@ -2568,8 +2568,8 @@ PODS:
   - RNInAppBrowser (3.7.1):
     - React-Core
   - SocketRocket (0.7.1)
-  - WirexMobileSDK (0.3.14)
-  - WirexMobileSdkRN (0.3.14):
+  - WirexMobileSDK (0.3.15)
+  - WirexMobileSdkRN (0.3.15):
     - boost
     - DoubleConversion
     - fast_float
@@ -2596,7 +2596,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - SocketRocket
-    - WirexMobileSDK (~> 0.3.14)
+    - WirexMobileSDK (~> 0.3.15)
     - Yoga
   - Yoga (0.0.0)
 
@@ -2936,8 +2936,8 @@ SPEC CHECKSUMS:
   ReactCommon: e788387a0b387a927a2a5d041fab09472fe8dedc
   RNInAppBrowser: 904d24dc75e8e6c6c98a3160329192608946f9df
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
-  WirexMobileSDK: c1ea0c2f7fd7c136b20f352f6d560de9260e177b
-  WirexMobileSdkRN: 6c34e2e1e991ad1db71806ea359737f9fbc6c512
+  WirexMobileSDK: a8e8427de6b4b867c95f043d679ddc9217cc7ada
+  WirexMobileSdkRN: 3e5e45764d1533c21537ebd8d0db1ccf12f92958
   Yoga: cf2a67aa1c8a225f0cb98a5f531d6f305d3f12e5
 
 PODFILE CHECKSUM: 811bdd0687f503474c3105c617351d7c260fb23b
