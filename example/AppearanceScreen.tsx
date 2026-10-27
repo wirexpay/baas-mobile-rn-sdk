@@ -17,6 +17,7 @@ import {ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'r
 
 import type {WirexThemeMode} from '@wirexapp/mobile-sdk';
 
+import {diag} from './diagLog';
 import {
   type AppearanceTokens,
   getAppearance,
@@ -190,6 +191,7 @@ export default function AppearanceScreen(): React.JSX.Element {
   const mode = getThemeMode();
 
   const applyPreset = (preset: Preset) => {
+    diag('tap', `preset "${preset.name}" (${mode})`);
     const tokens = mode === 'dark' ? preset.dark : preset.light;
     setActivePreset(preset.name);
     setAppearance(tokens);
@@ -198,6 +200,7 @@ export default function AppearanceScreen(): React.JSX.Element {
   };
 
   const pickMode = (next: WirexThemeMode) => {
+    diag('tap', `mode chip ${next}`);
     setThemeMode(next);
     // Re-send the active preset's variant for the new mode; a hand-edited document is left untouched.
     const preset = PRESETS.find((p) => p.name === activePreset);
@@ -209,10 +212,12 @@ export default function AppearanceScreen(): React.JSX.Element {
   };
 
   const applyDraft = () => {
+    diag('tap', `Apply document (${draft.length} chars)`);
     let parsed: unknown;
     try {
       parsed = JSON.parse(draft);
-    } catch {
+    } catch (e) {
+      diag('err', `appearance: document is not valid JSON: ${e instanceof Error ? e.message : String(e)}`);
       setStatus('Not valid JSON');
       return;
     }
@@ -226,6 +231,7 @@ export default function AppearanceScreen(): React.JSX.Element {
   };
 
   const reset = () => {
+    diag('tap', 'Reset appearance');
     setActivePreset('SDK defaults');
     resetAppearance();
     setDraft(pretty({}));

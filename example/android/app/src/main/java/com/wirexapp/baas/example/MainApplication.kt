@@ -14,8 +14,8 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          // Packages that cannot be autolinked yet can be added manually here, for example:
-          // add(MyReactNativePackage())
+          // Example-only: the Config tab's "Share log" reads this process's logcat lines through it.
+          add(ExampleDiagnosticsPackage())
         },
     )
   }
