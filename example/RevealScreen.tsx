@@ -17,6 +17,7 @@ import {
   type WirexRevealStrings,
 } from '@wirexapp/mobile-sdk';
 
+import {describeError, diag} from './diagLog';
 import {
   exampleCredentialProvider,
   getAppearance,
@@ -78,6 +79,7 @@ export default function RevealScreen(): React.JSX.Element {
     setBusy(true);
     try {
       const {chainId, cardId, cardholderName, devDisableScreenProtection} = getSettings();
+      diag('sdk', `reveal: configure testMode=${isTestMode()} chainId=${chainId || '(empty)'} cardId=${cardId ? `${cardId.length} chars` : '(empty)'} screenProtectionDisabled=${devDisableScreenProtection}`);
       await WirexReveal.configure({
         testMode: isTestMode(),
         chainId,
@@ -89,13 +91,19 @@ export default function RevealScreen(): React.JSX.Element {
         dangerouslyDisableScreenProtection: devDisableScreenProtection,
       });
       const active = await WirexReveal.createSession({cardId, cardholderName, fields: FIELDS});
-      active.onSnapshot(setSnapshot);
+      diag('sdk', `reveal: session created fields=${FIELDS.join(',')}`);
+      active.onSnapshot((snap) => {
+        setSnapshot(snap);
+        const fields = snap.fields.map((f) => `${f.field}=${f.outcome}${f.error ? `(${f.error.code ?? 'error'})` : ''}`).join(' ');
+        diag('sdk', `reveal: state=${snap.state} ${fields}`, `reveal-${snap.state}`);
+      });
       setSnapshot(active.snapshot);
       setSession((prev) => {
         void prev?.destroy();
         return active;
       });
     } catch (e) {
+      diag('err', `reveal: rebuild failed: ${describeError(e)}`);
       setError(String(e));
     } finally {
       setBusy(false);
@@ -135,15 +143,24 @@ export default function RevealScreen(): React.JSX.Element {
                   appearance={getAppearance()}
                   themeMode={getThemeMode()}
                   masked={masked[field]}
-                  onMaskedChange={(state) => setMasked((cur) => (cur[field] === state.masked ? cur : {...cur, [field]: state.masked}))}
+                  onMaskedChange={(state) => {
+                    diag('sdk', `reveal: ${field} ${state.masked ? 'masked' : 'revealed'}`);
+                    setMasked((cur) => (cur[field] === state.masked ? cur : {...cur, [field]: state.masked}));
+                  }}
                   onNaturalHeight={(h: number) => setHeights((cur) => (cur[field] === h ? cur : {...cur, [field]: h}))}
-                  onCopyResult={() => setNote(`Copied ${LABELS[field]}`)}
+                  onCopyResult={() => {
+                    diag('sdk', `reveal: copied ${field}`);
+                    setNote(`Copied ${LABELS[field]}`);
+                  }}
                   style={[styles.fieldView, heights[field] ? {height: heights[field]} : null]}
                 />
               </View>
               <TouchableOpacity
                 style={styles.eye}
-                onPress={() => setMasked((cur) => ({...cur, [field]: !cur[field]}))}
+                onPress={() => {
+                  diag('tap', `${masked[field] ? 'Show' : 'Hide'} ${field}`);
+                  setMasked((cur) => ({...cur, [field]: !cur[field]}));
+                }}
                 activeOpacity={0.7}>
                 <Text style={styles.eyeText}>{masked[field] ? 'Show' : 'Hide'}</Text>
               </TouchableOpacity>
@@ -155,9 +172,17 @@ export default function RevealScreen(): React.JSX.Element {
       {note ? <Text style={styles.note}>{note}</Text> : null}
 
       <View style={styles.actions}>
-        <Btn label={busy ? 'Working…' : 'Load details'} onPress={() => void session?.load()} disabled={busy || !session} primary />
-        <Btn label={allHidden ? 'Reveal all' : 'Hide all'} onPress={() => setAll(!allHidden)} disabled={!session} />
-        <Btn label="Rebuild" onPress={() => void rebuild()} />
+        <Btn
+          label={busy ? 'Working…' : 'Load details'}
+          onPress={() => {
+            diag('tap', `Load details (session ${session ? 'present' : 'MISSING'})`);
+            session?.load().catch((e) => diag('err', `reveal: load failed: ${describeError(e)}`));
+          }}
+          disabled={busy || !session}
+          primary
+        />
+        <Btn label={allHidden ? 'Reveal all' : 'Hide all'} onPress={() => { diag('tap', allHidden ? 'Reveal all' : 'Hide all'); setAll(!allHidden); }} disabled={!session} />
+        <Btn label="Rebuild" onPress={() => { diag('tap', 'Rebuild'); void rebuild(); }} />
       </View>
     </ScrollView>
   );

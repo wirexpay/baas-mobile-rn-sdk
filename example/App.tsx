@@ -6,12 +6,13 @@
  * Nothing is hard-coded and nothing is persisted — see PARTNER-CONFIG.md.
  */
 import React, {useEffect, useReducer, useState} from 'react';
-import {Linking, StatusBar, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {AppState, Keyboard, Linking, StatusBar, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 
 import AppearanceScreen from './AppearanceScreen';
 import CollectScreen from './CollectScreen';
 import ConfigScreen from './ConfigScreen';
+import {describeError, diag, diagHeader} from './diagLog';
 import {applySeedLink, getSettings, onAppearanceChange, onConfigChange} from './exampleConfig';
 import RevealScreen from './RevealScreen';
 import {T} from './theme';
@@ -39,9 +40,26 @@ export default function App(): React.JSX.Element {
   // device without typing — any parameter, the bearer and action token included (see `applySeedLink`).
   // The Config tab has a field for the same link, for a device where opening it is awkward.
   useEffect(() => {
-    void Linking.getInitialURL().then(applySeedLink);
-    const sub = Linking.addEventListener('url', (e) => applySeedLink(e.url));
+    Linking.getInitialURL().then(
+      (url) => (url ? applySeedLink(url, 'url') : diag('link', 'initial url: none')),
+      (e) => diag('err', `getInitialURL failed: ${describeError(e)}`),
+    );
+    const sub = Linking.addEventListener('url', (e) => applySeedLink(e.url, 'url'));
     return () => sub.remove();
+  }, []);
+
+  // The diagnostic log (Config tab, bottom): what this process is, then every foreground/background
+  // change and every keyboard show/hide, so a report reads like the run it describes.
+  useEffect(() => {
+    diagHeader().then((header) => diag('app', `launch\n${header}`), (e) => diag('err', `header failed: ${describeError(e)}`));
+    const state = AppState.addEventListener('change', (next) => diag('app', `state → ${next}`));
+    const shown = Keyboard.addListener('keyboardDidShow', (e) => diag('kbd', `shown height=${Math.round(e.endCoordinates.height)}`));
+    const hidden = Keyboard.addListener('keyboardDidHide', () => diag('kbd', 'hidden'));
+    return () => {
+      state.remove();
+      shown.remove();
+      hidden.remove();
+    };
   }, []);
   const env = getSettings().environment;
 
@@ -81,7 +99,7 @@ export default function App(): React.JSX.Element {
           {TABS.map((name) => {
             const on = tab === name;
             return (
-              <TouchableOpacity key={name} style={styles.tab} onPress={() => setTab(name)} activeOpacity={0.8}>
+              <TouchableOpacity key={name} style={styles.tab} onPress={() => { diag('tap', `tab ${name}`); setTab(name); }} activeOpacity={0.8}>
                 <View style={[styles.tabPill, on && styles.tabPillOn]}>
                   <Text numberOfLines={1} style={[styles.tabText, on && styles.tabTextOn]}>{name}</Text>
                 </View>

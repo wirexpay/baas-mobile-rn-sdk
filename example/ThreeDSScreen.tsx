@@ -10,6 +10,7 @@ import {StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native'
 
 import {WirexThreeDS, WirexThreeDSView, type WirexThreeDSSession} from '@wirexapp/mobile-sdk';
 
+import {describeError, describeUrl, diag} from './diagLog';
 import {isTestMode, getSettings, onConfigChange} from './exampleConfig';
 import {radius, T} from './theme';
 
@@ -26,24 +27,35 @@ export default function ThreeDSScreen(): React.JSX.Element {
   useEffect(() => () => { void session?.destroy(); }, [session]);
 
   const start = useCallback(async () => {
+    diag('tap', `Start challenge (busy=${busy.current}, url ${url.trim() ? describeUrl(url) : 'empty'})`);
     if (busy.current || !url.trim()) return;
     busy.current = true;
     setOutcome(null);
     setError(null);
     try {
+      const disabled = getSettings().devDisableScreenProtection;
+      diag('sdk', `3ds: configure testMode=${isTestMode()} screenProtectionDisabled=${disabled}`);
       await WirexThreeDS.configure({
         testMode: isTestMode(),
         logging: 'info',
         // DEV/TEST ONLY — the Config tab's "Disable screen protection" switch, the same one Collect
         // reads. On = the challenge stays visible while the screen is recorded (device clouds).
-        dangerouslyDisableScreenProtection: getSettings().devDisableScreenProtection,
+        dangerouslyDisableScreenProtection: disabled,
       });
       const active = await WirexThreeDS.createSession(url.trim());
+      diag('sdk', '3ds: session created');
+      active.onSnapshot((snap) => {
+        const outcomeText = snap.outcome ? ` outcome=${snap.outcome.status}${snap.outcome.error ? ` error=${snap.outcome.error.code}${snap.outcome.error.message ? ` "${snap.outcome.error.message}"` : ''}` : ''}` : '';
+        diag('sdk', `3ds: state=${snap.state} challengeVisible=${snap.isChallengeVisible}${outcomeText}`);
+      });
       setSession(active);
       await active.start();
+      diag('sdk', '3ds: started');
       const result = await active.settled();
+      diag('sdk', `3ds: settled status=${result.status}${result.error ? ` error=${result.error.code}` : ''}`);
       setOutcome(JSON.stringify(result));
     } catch (e) {
+      diag('err', `3ds: failed: ${describeError(e)}`);
       setError(String(e));
     } finally {
       busy.current = false;

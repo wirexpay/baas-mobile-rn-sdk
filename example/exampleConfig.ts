@@ -15,6 +15,8 @@
  */
 import {Platform} from 'react-native';
 
+import {describeUrl, diag} from './diagLog';
+
 import type {WirexActionScope, WirexCredentialProvider, WirexThemeMode} from '@wirexapp/mobile-sdk';
 
 export type ExampleEnvironment = 'production' | 'test';
@@ -97,17 +99,23 @@ export const getSecret = (key: keyof ExampleSecrets): string => secrets[key];
 
 export const setSetting = <K extends keyof ExampleSettings>(key: K, value: ExampleSettings[K]): void => {
   settings[key] = value;
+  // The log carries the key and the length, never the value; a keystroke-by-keystroke edit is one line.
+  if (key === 'environment') diag('config', `environment → ${String(value)}`);
+  else if (key === 'devDisableScreenProtection') diag('config', `screen protection ${value ? 'DISABLED' : 'enabled'}`);
+  else diag('config', `set ${key} (${String(value).length} chars)`, `set:${key}`);
   notify();
 };
 
 export const setSecret = (key: keyof ExampleSecrets, value: string): void => {
   secrets[key] = value;
+  diag('config', `set ${key} (${value.length} chars, secret)`, `set:${key}`);
   notify();
 };
 
 export const resetConfig = (): void => {
   Object.assign(settings, DEFAULT_SETTINGS);
   secrets.bearer = secrets.actionToken = secrets.checkoutToken = '';
+  diag('config', 'reset all');
   notify();
 };
 
@@ -118,43 +126,72 @@ const SEED_SECRETS = new Set<string>(['bearer', 'actionToken', 'checkoutToken'])
 /** The native examples name identity `wallet` / `email`; one seed link serves every platform. */
 const SEED_ALIASES: Record<string, string> = {wallet: 'userWallet', email: 'userEmail', disableScreenProtection: 'devDisableScreenProtection'};
 
+/** What a seed link did: the keys it set, or why it was refused. */
+export type SeedResult = {applied: number; keys: string[]} | {rejected: string};
+
+/** The schemes this example registers: the shared `wirexqa://` and its own `wirexqa-rn://`. */
+const SEED_SCHEMES = ['wirexqa', 'wirexqa-rn'];
+
 /**
  * Applies a `wirexqa://seed?d=<base64url(JSON)>` link — the deep link the example registers — from the
- * launch URL or from text pasted into the Config tab. Returns how many values were set, or null when the
- * text is not a seed link (other scheme, no `d`, undecodable). Any key the Config holds is applied, the
- * bearer and action token included; the payload is one base64 param (no `&`/`+` to mangle). A real
- * integration mints these from its own auth and the user's wallet; this only saves typing on a test
- * device — every value stays in memory only.
+ * launch URL or from text pasted into the Config tab. Returns the keys it set, or why it refused the
+ * text (another example's scheme, no `d`, undecodable). Any key the Config holds is applied, the bearer
+ * and action token included; the payload is one base64 param (no `&`/`+` to mangle). A real integration
+ * mints these from its own auth and the user's wallet; this only saves typing on a test device — every
+ * value stays in memory only. Every outcome is logged, with key names only.
  */
-export const applySeedLink = (url: string | null | undefined): number | null => {
+export const applySeedLink = (url: string | null | undefined, source: 'url' | 'paste' = 'url'): SeedResult => {
   const text = (url ?? '').trim();
+  const result = parseSeedLink(text);
+  diag('link', `received ${describeUrl(text)} source=${source}`);
+  diag('link', 'rejected' in result ? `rejected: ${result.rejected}` : `applied ${result.applied} values: ${result.keys.join(',')}`);
+  if (!('rejected' in result)) notify();
+  return result;
+};
+
+const parseSeedLink = (text: string): SeedResult => {
+  const parts = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]*)[^?#]*(?:\?([^#]*))?/i.exec(text);
+  if (!parts) return {rejected: 'not a URL'};
+  const [, scheme, host, query = ''] = parts;
   // `wirexqa-rn://` is this example's own scheme (iOS opens ONE app per scheme, so each example has one);
   // `wirexqa://` is the shared one every example also registers.
-  if (!/^wirexqa(-rn)?:\/\/seed/.test(text)) return null;
-  try {
-    const d = text.split('d=')[1]?.split('&')[0];
-    if (!d) return null;
-    const b64 = decodeURIComponent(d).replace(/-/g, '+').replace(/_/g, '/');
-    const atob = (globalThis as unknown as {atob: (data: string) => string}).atob;
-    const json = JSON.parse(atob(b64 + '=='.slice(0, (4 - (b64.length % 4)) % 4))) as Record<string, unknown>;
-    let applied = 0;
-    for (const [rawKey, value] of Object.entries(json)) {
-      if (value == null || `${value}` === '') continue;
-      const key = SEED_ALIASES[rawKey] ?? rawKey;
-      if (SEED_SECRETS.has(key)) {
-        secrets[key as keyof ExampleSecrets] = `${value}`;
-      } else if (key in DEFAULT_SETTINGS) {
-        (settings as unknown as Record<string, unknown>)[key] = key === 'devDisableScreenProtection' ? `${value}` === 'true' : `${value}`;
-      } else {
-        continue;
-      }
-      applied++;
-    }
-    notify();
-    return applied;
-  } catch {
-    return null;
+  if (!SEED_SCHEMES.includes(scheme.toLowerCase())) {
+    return {rejected: `scheme '${scheme}' is not accepted by this example (accepts: ${SEED_SCHEMES.join(', ')})`};
   }
+  if (host !== 'seed') return {rejected: `host is '${host}', expected seed`};
+  const d = query.split('&').find((p) => p.startsWith('d='))?.slice(2);
+  if (!d) return {rejected: 'no d= parameter'};
+  const atob = (globalThis as unknown as {atob?: (data: string) => string}).atob;
+  if (typeof atob !== 'function') return {rejected: 'atob is not available'};
+  let decoded: string;
+  try {
+    const b64 = decodeURIComponent(d).replace(/-/g, '+').replace(/_/g, '/');
+    decoded = atob(b64 + '=='.slice(0, (4 - (b64.length % 4)) % 4));
+  } catch {
+    return {rejected: 'base64 decode failed'};
+  }
+  let json: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(decoded);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {rejected: 'JSON parse failed: not an object'};
+    json = parsed as Record<string, unknown>;
+  } catch (e) {
+    return {rejected: `JSON parse failed: ${e instanceof Error ? e.message : String(e)}`};
+  }
+  const keys: string[] = [];
+  for (const [rawKey, value] of Object.entries(json)) {
+    if (value == null || `${value}` === '') continue;
+    const key = SEED_ALIASES[rawKey] ?? rawKey;
+    if (SEED_SECRETS.has(key)) {
+      secrets[key as keyof ExampleSecrets] = `${value}`;
+    } else if (key in DEFAULT_SETTINGS) {
+      (settings as unknown as Record<string, unknown>)[key] = key === 'devDisableScreenProtection' ? `${value}` === 'true' : `${value}`;
+    } else {
+      continue;
+    }
+    keys.push(key);
+  }
+  return {applied: keys.length, keys};
 };
 
 /** display amount (e.g. "10.00") → base-units string (amount * 10^decimals), without float loss. */
@@ -259,23 +296,27 @@ export const getThemeMode = (): WirexThemeMode => themeMode;
 /** A preset button: replace the whole map outright — a merge would leave the previous preset's tokens on. */
 export const setAppearance = (tokens: AppearanceTokens): void => {
   appearanceTokens = {...tokens};
+  diag('config', `appearance replaced: ${Object.keys(tokens).length} tokens`);
   notifyAppearance();
 };
 
 /** A pasted document: merge, so a partial map tweaks the current one rather than replacing it. */
 export const mergeAppearance = (tokens: AppearanceTokens): void => {
   appearanceTokens = {...appearanceTokens, ...tokens};
+  diag('config', `appearance merged: ${Object.keys(tokens).join(',') || '(none)'}`);
   notifyAppearance();
 };
 
 /** Back to an empty map — every token falls through to the mode's own SDK default. */
 export const resetAppearance = (): void => {
   appearanceTokens = {};
+  diag('config', 'appearance reset');
   notifyAppearance();
 };
 
 export const setThemeMode = (mode: WirexThemeMode): void => {
   themeMode = mode;
+  diag('config', `theme mode → ${mode}`);
   notifyAppearance();
 };
 
@@ -289,11 +330,13 @@ export const setThemeMode = (mode: WirexThemeMode): void => {
 export const exampleCredentialProvider: WirexCredentialProvider = {
   async getAccessToken() {
     const token = secrets.bearer;
+    diag('sdk', `credentials: getAccessToken → ${token ? `${token.length} chars` : 'MISSING'}`);
     if (!token) throw new Error('Set a bearer on the Config tab');
     return token;
   },
-  async getActionToken(_scope: WirexActionScope) {
+  async getActionToken(scope: WirexActionScope) {
     const token = secrets.actionToken;
+    diag('sdk', `credentials: getActionToken(${JSON.stringify(scope)}) → ${token ? `${token.length} chars` : 'MISSING'}`);
     if (!token) throw new Error('Set a step-up action token on the Config tab');
     return token;
   },

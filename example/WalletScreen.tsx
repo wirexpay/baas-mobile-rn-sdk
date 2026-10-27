@@ -28,6 +28,7 @@ import {
   type WirexWalletProviderConfig,
 } from '@wirexapp/mobile-sdk';
 
+import {describeError, diag} from './diagLog';
 import {fetchTopUpEstimate, getSecret, getSettings, onConfigChange} from './exampleConfig';
 import {radius, T} from './theme';
 
@@ -53,12 +54,15 @@ export default function WalletScreen(): React.JSX.Element {
   // Config tab — a quick way to verify your token and fill the estimation id without a backend.
   const [estimateMsg, setEstimateMsg] = useState('');
   const fetchEstimate = async (): Promise<void> => {
+    diag('tap', 'Fetch estimate');
     setEstimateMsg('fetching estimate…');
     try {
       const id = await fetchTopUpEstimate();
+      diag('sdk', `wallet: estimate loaded (${id.length} chars)`);
       setEstimationId(id);
       setEstimateMsg(`estimate ${id.slice(0, 8)}… loaded`);
     } catch (e) {
+      diag('err', `wallet: estimate failed: ${describeError(e)}`);
       setEstimateMsg(`estimate failed: ${String(e)}`);
     }
   };
@@ -71,8 +75,14 @@ export default function WalletScreen(): React.JSX.Element {
     }
   }, [providerJson]);
 
-  const log = (event: WirexWalletCheckoutEvent) => setEvents((prev) => [event.type, ...prev].slice(0, 12));
-  const pushEvent = useCallback((line: string) => setEvents((prev) => [line, ...prev].slice(0, 12)), []);
+  const log = (event: WirexWalletCheckoutEvent) => {
+    diag('sdk', `wallet: event ${event.type}`);
+    setEvents((prev) => [event.type, ...prev].slice(0, 12));
+  };
+  const pushEvent = useCallback((line: string) => {
+    diag('sdk', `wallet: ${line}`);
+    setEvents((prev) => [line, ...prev].slice(0, 12));
+  }, []);
   const ready = Boolean(estimationId.trim() && providerConfig);
   const checkoutToken = getSecret('checkoutToken');
 
@@ -97,6 +107,7 @@ export default function WalletScreen(): React.JSX.Element {
   }, [readReturn]);
 
   const launchCustomTab = useCallback(async () => {
+    diag('tap', `Launch in Custom Tab (provider config ${providerConfig ? 'ok' : 'INVALID'}, estimationId ${estimationId.trim() ? 'set' : 'EMPTY'}, checkoutToken ${checkoutToken ? 'set' : 'EMPTY'})`);
     if (!providerConfig || !estimationId.trim()) return;
     if (!checkoutToken) {
       pushEvent('set a checkout token on Config');
@@ -132,6 +143,9 @@ export default function WalletScreen(): React.JSX.Element {
     {providerConfig: providerConfig ?? undefined},
   );
   const payAvailable = Boolean(availability?.applePay || availability?.googlePay);
+  useEffect(() => {
+    if (availability != null) diag('sdk', `wallet: availability applePay=${String(availability.applePay)} googlePay=${String(availability.googlePay)}`);
+  }, [availability]);
   // The probe (mounted below) loads a hidden frame and runs native canMakePayments; that takes a moment,
   // and on the iOS Simulator (no Secure Element) it never resolves at all. Give it a generous window
   // before concluding "no Pay here", so a real device is not libelled as unavailable mid-probe.
@@ -198,7 +212,7 @@ export default function WalletScreen(): React.JSX.Element {
             </Text>
             {tokenMode && !checkoutToken ? <Text style={styles.warn}>set a checkout token on Config</Text> : null}
           </View>
-          <Switch value={tokenMode} onValueChange={setTokenMode} trackColor={{true: T.accent, false: T.border}} thumbColor={T.text} />
+          <Switch value={tokenMode} onValueChange={(v) => { diag('tap', `Token mode → ${v ? 'on' : 'off'}`); setTokenMode(v); }} trackColor={{true: T.accent, false: T.border}} thumbColor={T.text} />
         </View>
       </View>
 

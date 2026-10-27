@@ -6,9 +6,10 @@
  * Non-secret settings are plain fields. Secrets (bearer, step-up token, checkout token) are entered the
  * same way but held in memory only; a note says so. "Reset" clears everything back to defaults.
  */
-import React, {useEffect, useReducer, useState} from 'react';
-import {ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View} from 'react-native';
+import React, {useEffect, useReducer, useRef, useState} from 'react';
+import {Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View} from 'react-native';
 
+import {clearDiag, diag, diagLines, onDiagChange, shareDiag} from './diagLog';
 import {
   type ExampleEnvironment,
   type ExampleSettings,
@@ -54,9 +55,30 @@ export default function ConfigScreen(): React.JSX.Element {
   const [seed, setSeed] = useState('');
   const [seedStatus, setSeedStatus] = useState<{text: string; ok: boolean} | null>(null);
   const applySeed = (): void => {
-    const applied = applySeedLink(seed);
-    setSeedStatus(applied == null ? {text: 'Not a wirexqa://seed link', ok: false} : {text: `Applied ${applied} value${applied === 1 ? '' : 's'}`, ok: true});
-    if (applied != null) setSeed('');
+    diag('tap', 'Apply seed link');
+    const result = applySeedLink(seed, 'paste');
+    if ('rejected' in result) {
+      setSeedStatus({text: `Not a wirexqa://seed link — ${result.rejected}`, ok: false});
+    } else {
+      setSeedStatus({text: `Applied ${result.applied} value${result.applied === 1 ? '' : 's'}`, ok: true});
+      setSeed('');
+    }
+  };
+
+  // The diagnostic log, live: re-render on every line and keep the box scrolled to the newest one.
+  const [, bump] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => onDiagChange(bump), []);
+  const logBox = useRef<ScrollView | null>(null);
+  const lines = diagLines();
+  const [sharing, setSharing] = useState(false);
+  const share = async (): Promise<void> => {
+    diag('tap', 'Share log');
+    setSharing(true);
+    try {
+      await shareDiag();
+    } finally {
+      setSharing(false);
+    }
   };
 
   return (
@@ -93,7 +115,7 @@ export default function ConfigScreen(): React.JSX.Element {
         {(['test', 'production'] as ExampleEnvironment[]).map((env) => {
           const on = settings.environment === env;
           return (
-            <TouchableOpacity key={env} style={[styles.chip, on && styles.chipOn]} onPress={() => setSetting('environment', env)} activeOpacity={0.85}>
+            <TouchableOpacity key={env} style={[styles.chip, on && styles.chipOn]} onPress={() => { diag('tap', `environment chip ${env}`); setSetting('environment', env); }} activeOpacity={0.85}>
               <Text style={[styles.chipText, on && styles.chipTextOn]}>{env}</Text>
             </TouchableOpacity>
           );
@@ -127,16 +149,42 @@ export default function ConfigScreen(): React.JSX.Element {
           </View>
           <Switch
             value={settings.devDisableScreenProtection}
-            onValueChange={(v) => setSetting('devDisableScreenProtection', v)}
+            onValueChange={(v) => { diag('tap', `Disable screen protection → ${v ? 'on' : 'off'}`); setSetting('devDisableScreenProtection', v); }}
             trackColor={{true: T.accent, false: T.border}}
             thumbColor={T.text}
           />
         </View>
       </View>
 
-      <TouchableOpacity style={styles.reset} onPress={resetConfig} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.reset} onPress={() => { diag('tap', 'Reset all'); resetConfig(); }} activeOpacity={0.85}>
         <Text style={styles.resetText}>Reset all</Text>
       </TouchableOpacity>
+
+      <Text style={styles.section}>Diagnostic log</Text>
+      <View style={styles.group}>
+        <Text style={styles.hint}>
+          Everything the example and the SDK reported this run: taps, deep links, config changes, keyboard,
+          SDK events. No secrets, no card data. Share it with a bug report.
+        </Text>
+        <ScrollView
+          ref={logBox}
+          style={styles.logBox}
+          nestedScrollEnabled
+          onContentSizeChange={() => logBox.current?.scrollToEnd({animated: false})}>
+          <Text style={styles.logText} selectable>
+            {lines.length ? lines.join('\n') : '(empty)'}
+          </Text>
+        </ScrollView>
+        <View style={styles.row}>
+          <TouchableOpacity style={[styles.apply, sharing && styles.disabled]} onPress={() => void share()} disabled={sharing} activeOpacity={0.85}>
+            <Text style={styles.applyText}>{sharing ? 'Collecting…' : 'Share log'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondary} onPress={() => { diag('tap', 'Clear log'); clearDiag(); }} activeOpacity={0.85}>
+            <Text style={styles.secondaryText}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.hint}>{lines.length} line{lines.length === 1 ? '' : 's'} · the share sheet gets this log plus the SDK's own native log lines.</Text>
+      </View>
     </ScrollView>
   );
 }
@@ -181,4 +229,9 @@ const styles = StyleSheet.create({
   applyText: {color: T.onAccent, fontWeight: '800'},
   reset: {marginTop: 26, alignSelf: 'flex-start', paddingVertical: 11, paddingHorizontal: 20, borderRadius: radius.md, backgroundColor: '#FF407F22', borderWidth: 1, borderColor: T.pink},
   resetText: {color: T.pink, fontWeight: '800'},
+  logBox: {height: 220, borderWidth: 1, borderColor: T.border, borderRadius: radius.sm, backgroundColor: T.bg, padding: 8},
+  logText: {fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: 10.5, lineHeight: 14, color: T.textDim},
+  secondary: {paddingVertical: 11, paddingHorizontal: 20, borderRadius: radius.md, backgroundColor: T.surfaceAlt, borderWidth: 1, borderColor: T.border},
+  secondaryText: {color: T.text, fontWeight: '800'},
+  disabled: {opacity: 0.5},
 });
