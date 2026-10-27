@@ -81,8 +81,9 @@ export default function ConfigScreen(): React.JSX.Element {
     }
   };
 
+  // The inset grows with the keyboard, so the bottom of the page scrolls into view; a drag takes the keyboard down.
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets>
       <Text style={styles.title}>Configuration</Text>
       <Text style={styles.caption}>Type a partner's parameters here; every screen reads them live. Secrets stay in memory only.</Text>
 

@@ -118,8 +118,9 @@ export default function RevealScreen(): React.JSX.Element {
   const setAll = (value: boolean) => setMasked(Object.fromEntries(FIELDS.map((f) => [f, value])));
   const allHidden = FIELDS.every((f) => masked[f]);
 
+  // The inset grows with the keyboard, so the bottom of the page scrolls into view; a drag takes the keyboard down.
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets>
       <View style={styles.headRow}>
         <Text style={styles.title}>Reveal</Text>
         <View style={[styles.statePill, stateStyle(snapshot?.state)]}>

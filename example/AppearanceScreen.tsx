@@ -238,8 +238,9 @@ export default function AppearanceScreen(): React.JSX.Element {
     setStatus('Reset to SDK defaults');
   };
 
+  // The inset grows with the keyboard, so the bottom of the page scrolls into view; a drag takes the keyboard down.
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets>
       <Text style={styles.title}>Appearance</Text>
       <Text style={styles.caption}>
         One document, and the SDK draws exactly it — there is no theme for it to resolve. Pick the mode
