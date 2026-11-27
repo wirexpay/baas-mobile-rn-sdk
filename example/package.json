@@ -6,11 +6,16 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
+    "sdk:local": "npm install --no-save --install-links=false \"${WIREX_RN_SDK:-../../baas-rn-sdk}/mobile-sdk/react-native\"",
+    "sdk:published": "npm ci",
     "start": "react-native start",
+    "start:e2e": "react-native start --host 127.0.0.1",
     "test": "jest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@noble/hashes": "1.8.0",
+    "@noble/secp256k1": "2.3.0",
     "@react-native/new-app-screen": "0.83.6",
     "@wirexapp/mobile-sdk": "^0.3.15",
     "react": "19.2.0",

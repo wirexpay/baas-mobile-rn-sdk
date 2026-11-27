@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Trade: `createTrade({ environment, chainId, tokenProvider, signer })` buys and sells US stocks and coins from the user's account, with the members `account`, `setUpAccount`, `catalog`, `quote`, `execute`, `openOrders` and `resume`. The host signs each UserOp hash: only the 32-byte hash and the 65-byte signature cross the bridge, never the key. Errors are `TradeError` with a reason name.
+- Example: a Trade tab with the panels Account, Catalog, Quote, Trade and Open orders. It signs with a test user's exported key, from a gitignored `e2e.local.json` in a debug build or from the Config tab, and gets its bearer through the wallet-signature login. It refuses a production trade worth more than 10 USD. A seed link never carries the key.
+
 ## 0.3.15
 
 - 3-D Secure: `dangerouslyDisableScreenProtection` in `WirexThreeDS.configure()`, the same switch Collect has. Android applies no `FLAG_SECURE` while a challenge is on screen; iOS does not cover the page while the screen is recorded or mirrored. For automated UI tests and device clouds; off by default.

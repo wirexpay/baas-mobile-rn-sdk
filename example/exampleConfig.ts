@@ -5,7 +5,7 @@
  * TWO tiers, on purpose:
  *   - `settings`  — non-secret integration parameters (environment, chainId, clientId, the demo card
  *                   id, the wallet quote). Safe to show and to prefill.
- *   - `secrets`   — the bearer, the step-up action token, the wallet checkout token. Held in memory
+ *   - `secrets`   — the bearer, the step-up action token, the wallet checkout token, the owner key. Held in memory
  *                   ONLY, never logged, matching the SDK's own no-persistence promise. They reset when
  *                   the process dies; you re-enter them.
  *
@@ -16,6 +16,8 @@
 import {Platform} from 'react-native';
 
 import {describeUrl, diag} from './diagLog';
+import {loadE2eLocal} from './e2eLocal';
+import {bearerFromKey, clearKeyLogin} from './keyLogin';
 
 import type {WirexActionScope, WirexCredentialProvider, WirexThemeMode} from '@wirexapp/mobile-sdk';
 
@@ -27,6 +29,8 @@ export interface ExampleSettings {
   environment: ExampleEnvironment;
   /** `X-Chain-Id` — the chain the partner operates on. Wirex assigns it per integration. */
   chainId: string;
+  /** `X-Company-Id` of the key login: the company the test user belongs to. */
+  companyId: string;
   /** Optional partner id for the hosted wallet pages. Only set it if Wirex gave you one. */
   clientId: string;
   /** Identity headers. The backend accepts exactly one — email OR wallet. */
@@ -63,11 +67,14 @@ export interface ExampleSecrets {
   actionToken: string;
   /** TOKEN MODE: the short-lived top-up token your backend minted for the quote. */
   checkoutToken: string;
+  /** FOR TESTING ONLY: the test user's exported key. Signs the key login and each trade; never in a seed link. */
+  ownerKey: string;
 }
 
 const DEFAULT_SETTINGS: ExampleSettings = {
   environment: 'test',
   chainId: '',
+  companyId: '',
   clientId: '',
   userEmail: '',
   userWallet: '',
@@ -83,7 +90,11 @@ const DEFAULT_SETTINGS: ExampleSettings = {
 };
 
 const settings: ExampleSettings = {...DEFAULT_SETTINGS};
-const secrets: ExampleSecrets = {bearer: '', actionToken: '', checkoutToken: ''};
+const EMPTY_SECRETS: ExampleSecrets = {bearer: '', actionToken: '', checkoutToken: '', ownerKey: ''};
+const secrets: ExampleSecrets = {...EMPTY_SECRETS};
+// Keys e2e.local.json set: the highest source, so the Config tab and a seed link leave them alone.
+const fileKeys = new Set<string>();
+let fileValues: Record<string, unknown> = {};
 
 const settingsListeners = new Set<() => void>();
 const notify = (): void => settingsListeners.forEach((fn) => fn());
@@ -97,7 +108,14 @@ export const onConfigChange = (fn: () => void): (() => void) => {
 export const getSettings = (): Readonly<ExampleSettings> => settings;
 export const getSecret = (key: keyof ExampleSecrets): string => secrets[key];
 
+/** True when e2e.local.json set the key, so the Config tab shows it read-only. */
+export const isFromLocalFile = (key: keyof ExampleSettings | keyof ExampleSecrets): boolean => fileKeys.has(key);
+
 export const setSetting = <K extends keyof ExampleSettings>(key: K, value: ExampleSettings[K]): void => {
+  if (fileKeys.has(key)) {
+    diag('config', `kept ${key} from e2e.local.json`, `set:${key}`);
+    return;
+  }
   settings[key] = value;
   // The log carries the key and the length, never the value; a keystroke-by-keystroke edit is one line.
   if (key === 'environment') diag('config', `environment → ${String(value)}`);
@@ -107,6 +125,10 @@ export const setSetting = <K extends keyof ExampleSettings>(key: K, value: Examp
 };
 
 export const setSecret = (key: keyof ExampleSecrets, value: string): void => {
+  if (fileKeys.has(key)) {
+    diag('config', `kept ${key} from e2e.local.json`, `set:${key}`);
+    return;
+  }
   secrets[key] = value;
   diag('config', `set ${key} (${value.length} chars, secret)`, `set:${key}`);
   notify();
@@ -114,20 +136,22 @@ export const setSecret = (key: keyof ExampleSecrets, value: string): void => {
 
 export const resetConfig = (): void => {
   Object.assign(settings, DEFAULT_SETTINGS);
-  secrets.bearer = secrets.actionToken = secrets.checkoutToken = '';
+  Object.assign(secrets, EMPTY_SECRETS);
+  clearKeyLogin();
   diag('config', 'reset all');
-  notify();
+  applyE2eLocalFile(fileValues);
 };
 
 /** `test` everywhere but the production name. */
 export const isTestMode = (): boolean => settings.environment !== 'production';
 
 const SEED_SECRETS = new Set<string>(['bearer', 'actionToken', 'checkoutToken']);
+const FILE_SECRETS = new Set<string>([...SEED_SECRETS, 'ownerKey']);
 /** The native examples name identity `wallet` / `email`; one seed link serves every platform. */
 const SEED_ALIASES: Record<string, string> = {wallet: 'userWallet', email: 'userEmail', disableScreenProtection: 'devDisableScreenProtection'};
 
-/** What a seed link did: the keys it set, or why it was refused. */
-export type SeedResult = {applied: number; keys: string[]} | {rejected: string};
+/** What a seed link did: the keys it set and the ones e2e.local.json kept, or why it was refused. */
+export type SeedResult = {applied: number; keys: string[]; kept: string[]} | {rejected: string};
 
 /** The schemes this example registers: the shared `wirexqa://` and its own `wirexqa-rn://`. */
 const SEED_SCHEMES = ['wirexqa', 'wirexqa-rn'];
@@ -135,8 +159,9 @@ const SEED_SCHEMES = ['wirexqa', 'wirexqa-rn'];
 /**
  * Applies a `wirexqa://seed?d=<base64url(JSON)>` link — the deep link the example registers — from the
  * launch URL or from text pasted into the Config tab. Returns the keys it set, or why it refused the
- * text (another example's scheme, no `d`, undecodable). Any key the Config holds is applied, the bearer
- * and action token included; the payload is one base64 param (no `&`/`+` to mangle). A real integration
+ * text (another example's scheme, no `d`, undecodable, or an `ownerKey`). Any other key the Config holds
+ * is applied, the bearer and action token included, except the ones e2e.local.json set; the payload is
+ * one base64 param (no `&`/`+` to mangle). A real integration
  * mints these from its own auth and the user's wallet; this only saves typing on a test device — every
  * value stays in memory only. Every outcome is logged, with key names only.
  */
@@ -144,7 +169,12 @@ export const applySeedLink = (url: string | null | undefined, source: 'url' | 'p
   const text = (url ?? '').trim();
   const result = parseSeedLink(text);
   diag('link', `received ${describeUrl(text)} source=${source}`);
-  diag('link', 'rejected' in result ? `rejected: ${result.rejected}` : `applied ${result.applied} values: ${result.keys.join(',')}`);
+  diag(
+    'link',
+    'rejected' in result
+      ? `rejected: ${result.rejected}`
+      : `applied ${result.applied} values: ${result.keys.join(',')}${result.kept.length ? `; kept from e2e.local.json: ${result.kept.join(',')}` : ''}`,
+  );
   if (!('rejected' in result)) notify();
   return result;
 };
@@ -175,24 +205,71 @@ const parseSeedLink = (text: string): SeedResult => {
     const parsed: unknown = JSON.parse(decoded);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {rejected: 'JSON parse failed: not an object'};
     json = parsed as Record<string, unknown>;
-  } catch (e) {
+  } catch {
     // SECURITY: never the parser's message — it quotes the decoded payload, bearer included.
     return {rejected: `JSON parse failed: the link looks cut short (${text.length} chars, ${decoded.length} decoded) — copy the whole link again`};
   }
+  // SECURITY: a link travels in chats and QR codes and a key never expires, so a link with one is refused whole.
+  if (json.ownerKey != null && `${json.ownerKey}` !== '') {
+    return {rejected: 'a seed link never carries ownerKey; put the key in e2e.local.json or on the Config tab'};
+  }
   const keys: string[] = [];
+  const kept: string[] = [];
   for (const [rawKey, value] of Object.entries(json)) {
-    if (value == null || `${value}` === '') continue;
     const key = SEED_ALIASES[rawKey] ?? rawKey;
-    if (SEED_SECRETS.has(key)) {
-      secrets[key as keyof ExampleSecrets] = `${value}`;
-    } else if (key in DEFAULT_SETTINGS) {
-      (settings as unknown as Record<string, unknown>)[key] = key === 'devDisableScreenProtection' ? `${value}` === 'true' : `${value}`;
-    } else {
+    if (fileKeys.has(key)) {
+      kept.push(key);
       continue;
     }
-    keys.push(key);
+    if (applyValue(key, value, SEED_SECRETS)) keys.push(key);
   }
-  return {applied: keys.length, keys};
+  return {applied: keys.length, keys, kept};
+};
+
+/** Sets one known key from a seed link or the local file. Unknown keys and empty values are skipped. */
+const applyValue = (key: string, value: unknown, allowedSecrets: Set<string>): boolean => {
+  if (value == null || `${value}` === '') return false;
+  if (allowedSecrets.has(key)) {
+    secrets[key as keyof ExampleSecrets] = `${value}`;
+    return true;
+  }
+  if (!(key in DEFAULT_SETTINGS)) return false;
+  if (key === 'environment' && `${value}` !== 'production' && `${value}` !== 'test') return false;
+  (settings as unknown as Record<string, unknown>)[key] = key === 'devDisableScreenProtection' ? `${value}` === 'true' : `${value}`;
+  return true;
+};
+
+/**
+ * Applies the gitignored `e2e.local.json` of a debug build: the highest source, so its keys win over
+ * the Config tab and a seed link. Flat JSON with the Config keys, `ownerKey` included. Logs key names only.
+ */
+export const applyE2eLocalFile = (values: Record<string, unknown> = loadE2eLocal()): void => {
+  fileValues = values;
+  const keys: string[] = [];
+  for (const [rawKey, value] of Object.entries(values)) {
+    const key = SEED_ALIASES[rawKey] ?? rawKey;
+    if (applyValue(key, value, FILE_SECRETS)) {
+      fileKeys.add(key);
+      keys.push(key);
+    }
+  }
+  diag('config', keys.length ? `e2e.local.json set ${keys.length} values: ${keys.join(',')}` : 'e2e.local.json: none');
+  notify();
+};
+
+/**
+ * The bearer every surface sends. A pasted `bearer` wins; otherwise the owner key logs in through
+ * `POST /api/v1/user/authorize` with the company id, the chain id and the BaaS API URL.
+ */
+export const getBearer = async (): Promise<string> => {
+  if (secrets.bearer) return secrets.bearer;
+  if (!secrets.ownerKey) throw new Error('Set a bearer, or an owner key with the company id, on the Config tab');
+  return bearerFromKey({
+    baseUrl: settings.baasApiUrl,
+    companyId: settings.companyId,
+    chainId: settings.chainId,
+    ownerKey: secrets.ownerKey,
+  });
 };
 
 /** display amount (e.g. "10.00") → base-units string (amount * 10^decimals), without float loss. */
@@ -216,8 +293,7 @@ export async function fetchTopUpEstimate(): Promise<string> {
   // https only: the bearer goes to whatever is typed here. The chain id is required by the API.
   if (!/^https:\/\//.test(base)) throw new Error('Set an https BaaS API URL on the Config tab');
   if (!settings.chainId) throw new Error('Set the chain id on the Config tab');
-  const bearer = secrets.bearer;
-  if (!bearer) throw new Error('Set a bearer on the Config tab');
+  const bearer = await getBearer();
   const identity: Record<string, string> | null = settings.userWallet
     ? {'X-User-Wallet': settings.userWallet}
     : settings.userEmail
@@ -330,10 +406,14 @@ export const setThemeMode = (mode: WirexThemeMode): void => {
  */
 export const exampleCredentialProvider: WirexCredentialProvider = {
   async getAccessToken() {
-    const token = secrets.bearer;
-    diag('sdk', `credentials: getAccessToken → ${token ? `${token.length} chars` : 'MISSING'}`);
-    if (!token) throw new Error('Set a bearer on the Config tab');
-    return token;
+    try {
+      const token = await getBearer();
+      diag('sdk', `credentials: getAccessToken → ${token.length} chars${secrets.bearer ? '' : ' (key login)'}`);
+      return token;
+    } catch (e) {
+      diag('sdk', 'credentials: getAccessToken → MISSING');
+      throw e;
+    }
   },
   async getActionToken(scope: WirexActionScope) {
     const token = secrets.actionToken;
