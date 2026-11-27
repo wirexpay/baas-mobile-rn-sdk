@@ -20,11 +20,29 @@ buildscript {
 
 apply plugin: "com.facebook.react.rootproject"
 
+// Development only: WIREX_SDK_REPO names a folder the native SDK was published into from source. The
+// binding then takes that build, at the version in $WIREX_ANDROID_SDK/VERSION or WIREX_SDK_VERSION.
+def wirexSdkRepo = System.getenv("WIREX_SDK_REPO")
+if (wirexSdkRepo) {
+    def sdkCheckout = System.getenv("WIREX_ANDROID_SDK")
+    def version = sdkCheckout ? file("${sdkCheckout}/VERSION").text.trim() : System.getenv("WIREX_SDK_VERSION")
+    if (!version) throw new GradleException("WIREX_SDK_REPO is set: set WIREX_ANDROID_SDK to the SDK checkout, or WIREX_SDK_VERSION")
+    ext.wirexSdkVersion = version
+}
+
 // The Wirex SDK is consumed as a published artifact: the autolinked @wirexapp/mobile-sdk binding under
 // node_modules declares `com.wirexapp.baas:mobile-sdk` and resolves it from Maven Central. This has to
 // cover ALL projects, not just `:app`, because that binding resolves against these repositories.
 allprojects {
     repositories {
+        // React Native's root plugin adds Maven Central before this block, and Central has a released SDK
+        // of the same version, so the folder takes the SDK module exclusively rather than by order.
+        if (wirexSdkRepo) {
+            exclusiveContent {
+                forRepository { maven { url = uri(wirexSdkRepo) } }
+                filter { includeModule("com.wirexapp.baas", "mobile-sdk") }
+            }
+        }
         google()
         mavenCentral()
     }

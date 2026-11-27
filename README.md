@@ -9,6 +9,9 @@ cross the JavaScript bridge.
   is entering and returns a token in place of the card values.
 - **Wallet top-up** (`WirexWalletCheckoutView`, `WirexWalletAvailabilityProbe`) hosts the Wirex
   checkout with Apple Pay and Google Pay.
+- **Trade** (`createTrade`) buys and sells stocks and coins from the user's own account. Your app
+  supplies the bearer and signs each step; the key never reaches the SDK. Unreleased: it builds from
+  the SDK sources until its version is out.
 
 Use of the SDK requires an agreement with Wirex. See [LICENSE](LICENSE).
 

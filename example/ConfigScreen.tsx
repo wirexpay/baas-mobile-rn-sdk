@@ -16,17 +16,20 @@ import {
   applySeedLink,
   getSecret,
   getSettings,
+  isFromLocalFile,
   onConfigChange,
   resetConfig,
   setSecret,
   setSetting,
 } from './exampleConfig';
+import {isOwnerKeyShaped, ownerAddress, parseOwnerKey} from './testSigner';
 import {radius, T} from './theme';
 
 type FieldKey = keyof ExampleSettings;
 
 const SETTING_FIELDS: {key: FieldKey; label: string; hint?: string}[] = [
   {key: 'chainId', label: 'Chain ID', hint: 'X-Chain-Id — Wirex assigns per integration'},
+  {key: 'companyId', label: 'Company ID', hint: 'X-Company-Id — the test user\'s company, for the key login'},
   {key: 'clientId', label: 'Client ID', hint: 'optional — ?client= on the hosted pages'},
   {key: 'userEmail', label: 'User email', hint: 'X-User-Email'},
   {key: 'userWallet', label: 'User wallet', hint: 'X-User-Wallet (EOA)'},
@@ -37,19 +40,34 @@ const SETTING_FIELDS: {key: FieldKey; label: string; hint?: string}[] = [
   {key: 'walletProvider', label: 'Wallet provider', hint: "estimate's provider name"},
   {key: 'estimationId', label: 'Estimation ID', hint: 'Wallet — from Fetch estimate, the kit or a seed link'},
   {key: 'threeDsUrl', label: '3DS url', hint: '3DS — three_ds_state.url; the 3DS tab starts with it'},
-  {key: 'baasApiUrl', label: 'BaaS API URL', hint: 'for "Fetch estimate" — pricing is your backend\'s job'},
+  {key: 'baasApiUrl', label: 'BaaS API URL', hint: 'for the key login and "Fetch estimate" — pricing is your backend\'s job'},
 ];
 
-const SECRET_FIELDS: {key: 'bearer' | 'actionToken' | 'checkoutToken'; label: string; hint: string}[] = [
-  {key: 'bearer', label: 'Bearer token', hint: 'getAccessToken — Wirex bearer for the user'},
+const SECRET_FIELDS: {key: 'bearer' | 'actionToken' | 'checkoutToken' | 'ownerKey'; label: string; hint: string}[] = [
+  {key: 'bearer', label: 'Bearer token', hint: 'getAccessToken — Wirex bearer for the user; wins over the key login'},
+  {key: 'ownerKey', label: 'Owner key', hint: 'TESTING ONLY — the test user\'s exported key; signs the login and each trade'},
   {key: 'actionToken', label: 'Step-up action token', hint: 'getActionToken — card data / PIN'},
   {key: 'checkoutToken', label: 'Checkout token', hint: 'token mode — minted by your backend'},
 ];
+
+// The key's address, shown so the tester can tell which user signs. Never the key itself.
+const describeOwnerKey = (text: string): string => {
+  if (!text) return '';
+  if (!isOwnerKeyShaped(text)) return 'Not a 32-byte hex key';
+  try {
+    return `Signs as ${ownerAddress(parseOwnerKey(text))}`;
+  } catch (e) {
+    return e instanceof Error ? e.message : 'Not a valid key';
+  }
+};
+
+const FILE_HINT = 'set by e2e.local.json';
 
 export default function ConfigScreen(): React.JSX.Element {
   const [, force] = useReducer((n: number) => n + 1, 0);
   useEffect(() => onConfigChange(force), []);
   const settings = getSettings();
+  const isEnvironmentLocked = isFromLocalFile('environment');
   // The same `wirexqa://seed?d=…` link the app opens as a deep link, pasted instead — for a device
   // where opening the link is awkward (a chat that strips the scheme, a locked-down browser).
   const [seed, setSeed] = useState('');
@@ -60,7 +78,8 @@ export default function ConfigScreen(): React.JSX.Element {
     if ('rejected' in result) {
       setSeedStatus({text: `Not a wirexqa://seed link — ${result.rejected}`, ok: false});
     } else {
-      setSeedStatus({text: `Applied ${result.applied} value${result.applied === 1 ? '' : 's'}`, ok: true});
+      const kept = result.kept.length ? `; kept ${result.kept.join(', ')} from e2e.local.json` : '';
+      setSeedStatus({text: `Applied ${result.applied} value${result.applied === 1 ? '' : 's'}${kept}`, ok: true});
       setSeed('');
     }
   };
@@ -85,7 +104,7 @@ export default function ConfigScreen(): React.JSX.Element {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets>
       <Text style={styles.title}>Configuration</Text>
-      <Text style={styles.caption}>Type a partner's parameters here; every screen reads them live. Secrets stay in memory only.</Text>
+      <Text style={styles.caption}>Type a partner's parameters here; every screen reads them live. Secrets stay in memory only. In a debug build, e2e.local.json wins over this tab and a seed link.</Text>
 
       <Text style={styles.section}>Seed link</Text>
       <View style={styles.group}>
@@ -113,12 +132,12 @@ export default function ConfigScreen(): React.JSX.Element {
         </Text>
       </View>
 
-      <Text style={styles.section}>Environment</Text>
+      <Text style={styles.section}>Environment{isEnvironmentLocked ? ` · ${FILE_HINT}` : ''}</Text>
       <View style={styles.row}>
         {(['test', 'production'] as ExampleEnvironment[]).map((env) => {
           const on = settings.environment === env;
           return (
-            <TouchableOpacity key={env} style={[styles.chip, on && styles.chipOn]} onPress={() => { diag('tap', `environment chip ${env}`); setSetting('environment', env); }} activeOpacity={0.85}>
+            <TouchableOpacity key={env} style={[styles.chip, on && styles.chipOn, isEnvironmentLocked && styles.disabled]} disabled={isEnvironmentLocked} onPress={() => { diag('tap', `environment chip ${env}`); setSetting('environment', env); }} activeOpacity={0.85}>
               <Text style={[styles.chipText, on && styles.chipTextOn]}>{env}</Text>
             </TouchableOpacity>
           );
@@ -128,14 +147,23 @@ export default function ConfigScreen(): React.JSX.Element {
       <Text style={styles.section}>Integration parameters</Text>
       <View style={styles.group}>
         {SETTING_FIELDS.map(({key, label, hint}) => (
-          <Field key={key} label={label} hint={hint} value={String(settings[key])} onChange={(text) => setSetting(key, text)} />
+          <Field key={key} label={label} hint={hint} value={String(settings[key])} onChange={(text) => setSetting(key, text)} isLocked={isFromLocalFile(key)} />
         ))}
       </View>
 
       <Text style={styles.section}>Secrets · memory only</Text>
       <View style={styles.group}>
         {SECRET_FIELDS.map(({key, label, hint}) => (
-          <Field key={key} label={label} hint={hint} value={getSecret(key)} onChange={(text) => setSecret(key, text)} secure />
+          <Field
+            key={key}
+            label={label}
+            hint={hint}
+            value={getSecret(key)}
+            onChange={(text) => setSecret(key, text)}
+            secure
+            isLocked={isFromLocalFile(key)}
+            note={key === 'ownerKey' ? describeOwnerKey(getSecret(key)) : undefined}
+          />
         ))}
       </View>
 
@@ -192,14 +220,18 @@ export default function ConfigScreen(): React.JSX.Element {
   );
 }
 
-function Field({label, hint, value, onChange, secure}: {label: string; hint?: string; value: string; onChange: (text: string) => void; secure?: boolean}): React.JSX.Element {
+type FieldProps = {label: string; hint?: string; value: string; onChange: (text: string) => void; secure?: boolean; isLocked?: boolean; note?: string};
+
+function Field({label, hint, value, onChange, secure, isLocked, note}: FieldProps): React.JSX.Element {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      {isLocked ? <Text style={styles.hint}>{FILE_HINT}</Text> : null}
       <TextInput
-        style={styles.input}
+        style={[styles.input, isLocked && styles.disabled]}
         value={value}
+        editable={!isLocked}
         onChangeText={onChange}
         autoCapitalize="none"
         autoCorrect={false}
@@ -207,6 +239,7 @@ function Field({label, hint, value, onChange, secure}: {label: string; hint?: st
         placeholder={secure ? 'paste…' : ''}
         placeholderTextColor={T.textFaint}
       />
+      {note ? <Text style={styles.hint}>{note}</Text> : null}
     </View>
   );
 }

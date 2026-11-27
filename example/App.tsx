@@ -13,13 +13,14 @@ import AppearanceScreen from './AppearanceScreen';
 import CollectScreen from './CollectScreen';
 import ConfigScreen from './ConfigScreen';
 import {describeError, diag, diagHeader} from './diagLog';
-import {applySeedLink, getSettings, onAppearanceChange, onConfigChange} from './exampleConfig';
+import {applyE2eLocalFile, applySeedLink, getSettings, onAppearanceChange, onConfigChange} from './exampleConfig';
 import RevealScreen from './RevealScreen';
 import {T} from './theme';
 import ThreeDSScreen from './ThreeDSScreen';
+import TradeScreen from './TradeScreen';
 import WalletScreen from './WalletScreen';
 
-const TABS = ['Config', 'Reveal', 'Collect', '3DS', 'Wallet', 'Appearance'] as const;
+const TABS = ['Config', 'Reveal', 'Collect', '3DS', 'Wallet', 'Trade', 'Appearance'] as const;
 type Tab = (typeof TABS)[number];
 
 export default function App(): React.JSX.Element {
@@ -37,9 +38,11 @@ export default function App(): React.JSX.Element {
   }, []);
 
   // A `wirexqa://seed?d=<base64url(JSON)>` deep link prefills the Config, so a partner or QA can arm a
-  // device without typing — any parameter, the bearer and action token included (see `applySeedLink`).
+  // device without typing — any parameter but the owner key, the bearer included (see `applySeedLink`).
   // The Config tab has a field for the same link, for a device where opening it is awkward.
   useEffect(() => {
+    // A debug build's e2e.local.json goes first: it outranks the seed link and the Config tab.
+    applyE2eLocalFile();
     Linking.getInitialURL().then(
       (url) => (url ? applySeedLink(url, 'url') : diag('link', 'initial url: none')),
       (e) => diag('err', `getInitialURL failed: ${describeError(e)}`),
@@ -89,6 +92,7 @@ export default function App(): React.JSX.Element {
           <Pane show={tab === 'Collect'}><CollectScreen /></Pane>
           <Pane show={tab === '3DS'}>{tab === '3DS' ? <ThreeDSScreen /> : null}</Pane>
           <Pane show={tab === 'Wallet'}><WalletScreen /></Pane>
+          <Pane show={tab === 'Trade'}><TradeScreen /></Pane>
           <Pane show={tab === 'Appearance'}><AppearanceScreen /></Pane>
         </View>
 

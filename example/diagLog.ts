@@ -4,8 +4,9 @@
  *
  * What goes in: taps, deep links, config changes (key + length), keyboard, the events each screen
  * receives from the SDK, caught errors. What never goes in: a value from the Config tab (bearer, action
- * token, checkout token), a 3DS url's query, card data. `redact` is the backstop for a line that
- * slipped: it blanks JWT-shaped tokens, card-number-length digit runs and full wallet addresses.
+ * token, checkout token, owner key), a 3DS url's query, card data. `redact` is the backstop for a line
+ * that slipped: it blanks JWT-shaped tokens, 32-byte hex runs (a key, a hash), card-number-length digit
+ * runs and full wallet addresses.
  *
  * The native SDK's own lines (it is handed `logging: 'info'`) go to logcat / os_log, which JS cannot
  * read; "Share log" fetches them through `ExampleDiagnostics` and appends them.
@@ -35,6 +36,8 @@ const stamp = (): string => {
 export const redact = (text: string): string =>
   text
     .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.?[A-Za-z0-9_-]*/g, '<jwt>')
+    // SECURITY: 32 bytes of hex or more is a key, a hash or a signature; none belongs in a log.
+    .replace(/\b(0x)?[0-9a-fA-F]{64,}\b/g, '<hex>')
     .replace(/\b\d{13,19}\b/g, '<digits>')
     .replace(/0x([0-9a-fA-F]{4})[0-9a-fA-F]{32}([0-9a-fA-F]{4})\b/g, '0x$1…$2');
 

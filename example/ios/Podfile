@@ -19,6 +19,13 @@ target 'WirexMobileSdkExample' do
   # is resolved automatically from the CocoaPods trunk by autolinking — nothing to declare here.
   config = use_native_modules!
 
+  # Development only: WIREX_SDK_FROM_SOURCE=1 with WIREX_IOS_SDK=<path to baas-ios-sdk> builds the native
+  # SDK from source (see the binding README, "Local native sources"). Without them the trunk pod is used.
+  if ENV['WIREX_SDK_FROM_SOURCE'] == '1'
+    raise 'Set WIREX_IOS_SDK to a baas-ios-sdk checkout' if ENV['WIREX_IOS_SDK'].to_s.empty?
+    pod 'WirexMobileSDK', :path => ENV['WIREX_IOS_SDK']
+  end
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.

@@ -2,7 +2,11 @@
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
     "baseUrl": ".",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // The SDK's sources, which both the published package and a local binding ship. The local
+    // binding is a symlink with no built `lib`; preserveSymlinks keeps one copy of React's types.
+    "paths": {"@wirexapp/mobile-sdk": ["node_modules/@wirexapp/mobile-sdk/src/index.ts"]},
+    "preserveSymlinks": true
   },
   "include": ["*.ts", "*.tsx", "index.js"]
 }

@@ -1,0 +1,8 @@
+{
+  "environment": "production",
+  "chainId": "8453",
+  "companyId": "00000000-0000-0000-0000-000000000000",
+  "baasApiUrl": "https://<the api-business host Wirex gave you>",
+  "ownerKey": "0x<the test user's exported key, 64 hex>",
+  "bearer": ""
+}

@@ -74,6 +74,9 @@ yarn-error.log
 !.yarn/sdks
 !.yarn/versions
 
+# The tester file with a test user's key. Never committed; __tests__/e2eGuard.test.ts checks it.
+e2e.local.json
+
 # Generated JS bundle. Written into a SOURCE directory by `react-native bundle`, so it has to
 # be ignored explicitly — this example loads from assets rather than from Metro.
 android/app/src/main/assets/index.android.bundle
