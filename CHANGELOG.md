@@ -4,6 +4,8 @@
 
 - Trade: `createTrade({ environment, chainId, tokenProvider, signer })` buys and sells US stocks and coins from the user's account, with the members `account`, `setUpAccount`, `catalog`, `quote`, `execute`, `openOrders` and `resume`. The host signs each UserOp hash: only the 32-byte hash and the 65-byte signature cross the bridge, never the key. Errors are `TradeError` with a reason name.
 - Example: a Trade tab with the panels Account, Catalog, Quote, Trade and Open orders. It signs with a test user's exported key, from a gitignored `e2e.local.json` in a debug build or from the Config tab, and gets its bearer through the wallet-signature login. It refuses a production trade worth more than 10 USD. A seed link never carries the key.
+- Crypto: `createCrypto({ environment, chainId, tokenProvider, signer })` sends from the user's account to any address, on its own chain or another network, and makes deposit addresses. Its members are `balances`, `quoteSend`, `send`, `resumeSend`, `sendStatus`, `pendingSends` and `depositAddress`. It signs as `Trade` does, and errors are `CryptoError` with a reason name.
+- Example: a Crypto tab with the panels Balances, Send, Pending and Deposit. Quotes are held in memory only, and a pending row resumes by its held quote's `requestHash`. On production it refuses a send worth more than 10 USD: USDC, USDT and WUSD count at face value, EURC and WEUR at ×1.25, and any other token is refused.
 
 ## 0.3.15
 

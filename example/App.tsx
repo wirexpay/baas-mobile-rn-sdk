@@ -11,6 +11,7 @@ import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 
 import AppearanceScreen from './AppearanceScreen';
 import CollectScreen from './CollectScreen';
+import CryptoScreen from './CryptoScreen';
 import ConfigScreen from './ConfigScreen';
 import {describeError, diag, diagHeader} from './diagLog';
 import {applyE2eLocalFile, applySeedLink, getSettings, onAppearanceChange, onConfigChange} from './exampleConfig';
@@ -20,7 +21,7 @@ import ThreeDSScreen from './ThreeDSScreen';
 import TradeScreen from './TradeScreen';
 import WalletScreen from './WalletScreen';
 
-const TABS = ['Config', 'Reveal', 'Collect', '3DS', 'Wallet', 'Trade', 'Appearance'] as const;
+const TABS = ['Config', 'Reveal', 'Collect', '3DS', 'Wallet', 'Trade', 'Crypto', 'Appearance'] as const;
 type Tab = (typeof TABS)[number];
 
 export default function App(): React.JSX.Element {
@@ -93,6 +94,7 @@ export default function App(): React.JSX.Element {
           <Pane show={tab === '3DS'}>{tab === '3DS' ? <ThreeDSScreen /> : null}</Pane>
           <Pane show={tab === 'Wallet'}><WalletScreen /></Pane>
           <Pane show={tab === 'Trade'}><TradeScreen /></Pane>
+          <Pane show={tab === 'Crypto'}><CryptoScreen /></Pane>
           <Pane show={tab === 'Appearance'}><AppearanceScreen /></Pane>
         </View>
 

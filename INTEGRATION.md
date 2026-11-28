@@ -1,6 +1,6 @@
 # Wirex Mobile SDK for React Native — Integration Guide
 
-One npm package, four sealed surfaces: card **Reveal**, card **Collect**, **3-D Secure** and **Wallet** top-up with Apple Pay and Google Pay, plus **Trade** for stocks and coins. Card values stay in native views and never cross the JavaScript bridge. Every snippet below is type-checked against `@wirexapp/mobile-sdk` 0.3.15, and the Trade snippet against the SDK sources of the coming release.
+One npm package, four sealed surfaces: card **Reveal**, card **Collect**, **3-D Secure** and **Wallet** top-up with Apple Pay and Google Pay. It also carries **Trade** for stocks and coins, and **Crypto** for sends and deposit addresses. Card values stay in native views and never cross the JavaScript bridge. Every snippet below is type-checked against `@wirexapp/mobile-sdk` 0.3.15, and the Trade and Crypto snippets against the SDK sources of the coming release.
 
 <!-- badges: React Native · TypeScript | @wirexapp/mobile-sdk 0.3.15 · npm | Reveal · Collect · 3-D Secure · Wallet -->
 
@@ -20,6 +20,7 @@ Your app supplies two things:
 | 3-D Secure | **no** | Renders the issuer challenge for a card payment and reports the outcome. |
 | Wallet | yes | Embeds the Wirex-hosted Apple Pay / Google Pay checkout for a backend-priced top-up. |
 | Trade | bearer + signer | Buys and sells stocks and coins from the user's account. Your app signs each step; the key never reaches the SDK. |
+| Crypto | bearer + signer | Sends from the user's account to any address, on its own chain or another network, and makes deposit addresses. |
 
 :::diagram model Apple/Google Pay
 
@@ -339,7 +340,41 @@ export async function buyFirstStock(onStep: (e: TradeStepEvent) => void) {
 - **Errors.** Each member rejects with a `TradeError`: `reason`, plus `step`, `orderId`, `routeReason`, `detailKey`, `httpStatus` and `entryPointCode` where they apply. It never carries an amount, an address or a hash. Main reasons: `signer_mismatch` (the key does not own the account), `investment_wallet_required` (call `setUpAccount` first), `quote_expired` (get a new quote), `insufficient_funds`, `order_not_ended` (resume it from `openOrders`).
 - **Where it runs.** `production` runs the full trade. `test` reads the catalog only: a buy quote answers `investment_wallet_required`, and the set-up cannot run there.
 
-## 9. Appearance, strings and sizing
+## 9. Crypto · sends and deposit addresses {creds}
+
+`Crypto` sends from the user's main account on Base (8453) or Arc (5042) to another address, on the same chain or another network. It also makes deposit addresses and reads them back. It runs on the same chain layer as `Trade`, and your app signs each step the same way. `Crypto` is unreleased: until its version is out, it builds from the SDK sources. Every member, field and reason is in `docs/crypto/NATIVE-API.md`, which ships with the SDK sources.
+
+```tsx
+import { createCrypto, CryptoError, type CryptoStepEvent, type SendStatus, type TradeSigner } from '@wirexapp/mobile-sdk';
+
+declare function fetchAccessToken(): Promise<string>;
+declare const signer: TradeSigner; // the same signer Trade takes
+
+export async function sendFiveUsdc(to: string, onStep: (e: CryptoStepEvent) => void): Promise<SendStatus | null> {
+  const crypto = createCrypto({ environment: 'production', chainId: 8453, tokenProvider: { accessToken: fetchAccessToken }, signer });
+  const quote = await crypto.quoteSend({ to, network: 'ARBITRUM', token: 'USDC', amount: '5' }); // what arrives
+  try {
+    const result = await crypto.send(quote, { onStep }); // keep the sendId, the quote and the result
+    return result.rail === 'transfer' ? null : await crypto.sendStatus(result);
+  } catch (e) {
+    if (e instanceof CryptoError && e.reason === 'quote_expired') return null; // quote again
+    throw e;
+  }
+}
+```
+
+- **`createCrypto({ environment, chainId, tokenProvider, signer })`** takes what `createTrade` takes. One signer and one token provider serve both surfaces. It is synchronous and throws `CryptoError` at once on a bad input.
+- **Members:** `balances()`, `quoteSend({ to, network, token, amount, provider? })`, `send(quote, { onStep })`, `resumeSend(sendId, quote, { onStep })`, `sendStatus(result)`, `pendingSends()` and `depositAddress({ family })`.
+- **The quote.** `to` is checked by its network's form, and the main account itself is refused. `network` is `ARC`, `BASE`, `ETHEREUM`, `ARBITRUM`, `OPTIMISM`, `AVALANCHE`, `MATIC_POS`, `BINANCE`, `TRON` or `SOLANA`. `token` is what arrives: `USDC` or `USDT` on another network. `amount` is what arrives, and the fee comes on top. `provider` (`cctp`, `rhino` or `across`) forces a rail; otherwise the SDK picks the cheaper.
+- **What pays.** A synthetic over the token, such as WUSD over USDC, while it covers the amount and the fee: the quote's `unwrap` names it. Otherwise the token itself.
+- **The send.** Before anything is signed, the SDK checks the owner, the quote's `validUntil`, the quote's `requestHash` and the balances. Then the `request` and the `execute` steps go, and `send` answers a `SendResult`.
+- **`onStep`** receives one `CryptoStepEvent` per change: `step` (`request`, `execute`), `state` (`started`, `done`, `failed`), and `reason` on a failure.
+- **Delivery.** `sendStatus(result)` reads the delivery once: `delivered`, `on_its_way`, `not_delivered` or `unknown`. A `transfer` on the own chain lands with the execute, so there is nothing to check.
+- **Resume.** The SDK keeps nothing. Your app keeps each send's `sendId` and quote, and after a send its result. `pendingSends()` lists the requests that have not run or expired. A row carries no `sendId`: match it to your held quote by `requestHash`, in lower case, then call `resumeSend(quote.sendId, quote)`. Like `send`, `resumeSend` checks the owner before its first signature, or fails with `signer_mismatch`.
+- **Deposit addresses.** `depositAddress({ family })` takes `EVM`, `TRX`, `SOL`, `XLM` or `BTC`. It answers the address, its networks, and each token's `minUsd` and `maxUsd`. It reuses the account's saved address when there is one.
+- **Errors.** Each member rejects with a `CryptoError`: `reason`, plus `step`, `sendId`, `routeReason`, `detailKey`, `httpStatus` and `entryPointCode` where they apply. It never carries an amount, an address or a hash. Main reasons: `invalid_address`, `recipient_is_account`, `insufficient_funds`, `quote_expired`, `quote_mismatch`, `over_limit`, `amount_too_small`, `bridge_unavailable` and `signer_mismatch`.
+
+## 10. Appearance, strings and sizing
 
 Every surface takes an appearance object and a strings object. The SDK ships no copy, so your app supplies every word the views draw.
 
@@ -369,7 +404,7 @@ export const walletBranding: WirexWalletBranding = { logo: 'hidden', processingD
 - Wallet: `appearance` passes CSS variables to the frame; `buttons` sets the Apple Pay `style`/`type` and Google Pay `color`/`type`; `branding` sets the logo (`'wirex' | 'hidden' | 'custom'` with a data-URI `logoImage`), the processing disclosure and a privacy URL; `strings` overrides the 11 labels of the checkout.
 - **Sizing.** Reveal rows report `onNaturalHeight`; the collect form sizes itself; the wallet emits a `naturalHeight` event. Apply those heights instead of hardcoding them.
 
-## 10. Logging, timeouts and errors
+## 11. Logging, timeouts and errors
 
 ```tsx
 import { WirexDeclined, WirexWalletEnvironmentUnavailable, WirexWalletLogging, type WirexRevealSnapshot, type WirexWalletConfig } from '@wirexapp/mobile-sdk';
@@ -388,7 +423,7 @@ export const envReason = (e: unknown) => (e instanceof WirexWalletEnvironmentUna
 - `WirexDeclined` is the one shared error class: the user said no, and nothing was sent.
 - An unknown wallet environment name throws `WirexWalletEnvironmentUnavailable`. Show the reason; never fall back to another environment.
 
-## 11. Your backend
+## 12. Your backend
 
 The SDK makes none of these calls. Your backend performs them with the partner credentials Wirex issued, and the app passes the results in:
 
@@ -399,11 +434,11 @@ The SDK makes none of these calls. Your backend performs them with the partner c
 
 Authenticated calls carry `Authorization: Bearer`, `X-Chain-Id` and one identity header (`X-User-Email` or `X-User-Wallet`, never both). For exact paths and payloads see the Wirex BaaS API reference provided with your integration.
 
-## 12. The example app
+## 13. The example app
 
-[`example/`](example/) is a React Native app that exercises every surface against your own data; nothing is compiled in. Run `npm install`, `cd ios && pod install`, then `npm run ios` or `npm run android`. The **Config** tab is a per-field editor for the environment, the integration parameters (chain id, identity, card id, cardholder name) and the secrets (bearer, step-up action token); values live in memory only, and every screen reads them live. The **Wallet** screen takes an estimation id and the provider block, and its **Fetch estimate** button prices a top-up through the BaaS API with your bearer, so you can get a real estimation id without standing up a backend. The **Appearance** tab restyles every sealed surface at once. The **Trade** tab runs a real stock or coin trade on `production`, signed with a test user's exported key. It refuses one worth more than 10 USD. Its config comes from a gitignored `e2e.local.json` in a debug build, or from the Config tab ([`example/README.md`](example/README.md)). The field list is in [`PARTNER-CONFIG.md`](PARTNER-CONFIG.md). Reveal values render blank on the iOS Simulator and the Pay sheet needs a real device.
+[`example/`](example/) is a React Native app that exercises every surface against your own data; nothing is compiled in. Run `npm install`, `cd ios && pod install`, then `npm run ios` or `npm run android`. The **Config** tab is a per-field editor for the environment, the integration parameters (chain id, identity, card id, cardholder name) and the secrets (bearer, step-up action token); values live in memory only, and every screen reads them live. The **Wallet** screen takes an estimation id and the provider block, and its **Fetch estimate** button prices a top-up through the BaaS API with your bearer, so you can get a real estimation id without standing up a backend. The **Appearance** tab restyles every sealed surface at once. The **Trade** tab runs a real stock or coin trade on `production`, signed with a test user's exported key. It refuses one worth more than 10 USD. Its config comes from a gitignored `e2e.local.json` in a debug build, or from the Config tab ([`example/README.md`](example/README.md)). The **Crypto** tab sends from the same account and makes deposit addresses, with the same key and the same 10 USD cap. The field list is in [`PARTNER-CONFIG.md`](PARTNER-CONFIG.md). Reveal values render blank on the iOS Simulator and the Pay sheet needs a real device.
 
-## 13. Patterns from a production integration
+## 14. Patterns from a production integration
 
 The SDK ships inside a production cardholder app built on the same BaaS API. The patterns below are not required by the API; they are what that integration settled on, with the app-specific parts removed.
 
@@ -586,7 +621,7 @@ export function readReturn(url: string | undefined, returnUrl: string, quote: Wi
 - **A failed mint is not fatal in-app.** Run legacy mode instead: the frame tokenizes and your backend executes. Keep `debug` off outside development builds.
 - **Custom Tab is the partner path for Google Pay on Android** when your own WebView cannot complete it. Use an **https App Link** as `returnUrl` (a custom scheme can be claimed by any installed app), open the URL with an auth-session API such as `expo-web-browser`'s `openAuthSessionAsync(url, returnUrl)`, and treat every ending that is not `completed`, `pending` or `failed` as unknown: Android cannot close the tab for you, and a closed tab says nothing about the payment. A Custom Tab needs token mode; there is nobody to hand a wallet token to.
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 
 - **A revealed field is blank.** iOS Simulator (secure layer), or the row was given a height smaller than `onNaturalHeight` reported.
 - **`configure` rejects with an environment error.** This build has no endpoints for that side, or `chainId` is empty.
@@ -597,4 +632,6 @@ export function readReturn(url: string | undefined, returnUrl: string, quote: Wi
 - **Both `userEmail` and `userWallet` are set.** The backend answers `400`. Return exactly one.
 - **A trade fails with `signer_mismatch`.** The signer's address is not the owner of the user's main account. Nothing was signed.
 - **A trade fails with `order_not_ended`.** The order is still open. Load `openOrders()` and resume it.
+- **A send fails with `quote_mismatch`.** The quote is not that send's, or its fields were changed. Pass the quote `quoteSend` answered, as it came.
+- **A pending send cannot be resumed.** No quote is held for it. The SDK keeps nothing, so your app must keep each send's quote; without it the request expires by itself.
 - **The native module is missing.** You are in Expo Go or on the old architecture. Build a development build with the New Architecture enabled.
