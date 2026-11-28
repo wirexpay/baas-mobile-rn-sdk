@@ -92,6 +92,24 @@ debug build; no Firebase build carries a key.
 5. Open **Trade** and follow the panels top to bottom: read or set up the account, load the catalog (a
    tap fills the quote), get a quote, execute, and resume an open order after killing the app.
 
+## Crypto: a test send from a local build
+
+The **Crypto** tab sends from the same account, with the same config, key and local build as Trade.
+On `production` it refuses a send worth more than 10 USD: USDC, USDT and WUSD count at face value,
+EURC and WEUR at ×1.25, and any other token is refused. The cap is checked on the typed amount, and
+again at `Send` and `Resume` on what the quote makes leave, valued on fresh balances.
+
+1. **Balances:** `Read balances` lists the main account's tokens.
+2. **Send:** pick the network, type the token, the recipient and the amount that arrives, and
+   optionally force a provider. `Get quote` shows the rail, the fee, what arrives and what leaves.
+   `Send` runs the request and the execute, with a steps table. `Check delivery` shows for a send to
+   another network.
+3. **Pending:** `Load pending` lists the requests that have not run. A row resumes only with the quote
+   this run made for it, matched by `requestHash`. Quotes live in memory only: after the app is killed,
+   a row shows "no quote held for this send" and expires by itself.
+4. **Deposit:** pick a family, then `Get deposit address`, which shows the address, its networks and
+   each token's limits.
+
 ## How a partner integrates
 
 The example is deliberately thin — the integration is three steps, the same on every platform:
@@ -110,7 +128,10 @@ See `../PARTNER-CONFIG.md` for exactly what each surface needs and who supplies 
 |---|---|
 | `exampleConfig.ts` | the runtime config model + the credential provider that reads it |
 | `ConfigScreen.tsx` | the Config (debug) tab — the form |
-| `RevealScreen` / `CollectScreen` / `ThreeDSScreen` / `WalletScreen` / `TradeScreen` | one surface each |
+| `RevealScreen` / `CollectScreen` / `ThreeDSScreen` / `WalletScreen` / `TradeScreen` / `CryptoScreen` | one surface each |
+| `cryptoGuards.ts` | the Crypto tab's 10 USD cap on `production` |
+| `cryptoSdk.ts` | the one `Crypto` built from the Config tab, keyed like `Trade` |
+| `cryptoView.ts` | the Crypto hints, the held quotes and the step log line |
 | `testSigner.ts` | **testing only**: signs with the test user's key (`@noble/secp256k1`) |
 | `keyLogin.ts` | **testing only**: the bearer from the key, through the wallet-signature login |
 | `tradeGuards.ts` | the 10 USD cap on `production` |

@@ -22,12 +22,12 @@ const isTradeError = (e: unknown): e is TradeErrorFields =>
   typeof e === 'object' && e !== null && typeof (e as {reason?: unknown}).reason === 'string';
 
 /** One line: `reason · (hint) · step <step> · route <routeReason> / <detailKey> · HTTP <status> · <entryPointCode>`, each absent part left out. */
-export const errorLine = (e: unknown): string => {
+export const errorLine = (e: unknown, hints: Partial<Record<string, string>> = REASON_HINTS): string => {
   if (!isTradeError(e)) {
     if (!(e instanceof Error)) return String(e);
     return e.name === 'Error' ? e.message : `${e.name}: ${e.message}`;
   }
-  const hint = REASON_HINTS[e.reason as TradeErrorReason];
+  const hint = hints[e.reason];
   const route = [e.routeReason, e.detailKey].filter(Boolean).join(' / ');
   return [
     e.reason,

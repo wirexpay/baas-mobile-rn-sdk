@@ -12,6 +12,8 @@ cross the JavaScript bridge.
 - **Trade** (`createTrade`) buys and sells stocks and coins from the user's own account. Your app
   supplies the bearer and signs each step; the key never reaches the SDK. Unreleased: it builds from
   the SDK sources until its version is out.
+- **Crypto** (`createCrypto`) sends from the user's own account to any address, on its own chain or
+  another network, and makes deposit addresses. It signs the way `Trade` does. Unreleased, like `Trade`.
 
 Use of the SDK requires an agreement with Wirex. See [LICENSE](LICENSE).
 

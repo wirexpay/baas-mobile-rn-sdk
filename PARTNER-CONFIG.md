@@ -11,12 +11,12 @@ the provider block, or fetches an estimate with your bearer.
 ### Environment
 | Field | What it is |
 |---|---|
-| `environment` | `test` or `production`. Maps to the SDK's `testMode`; the SDK holds the hosts itself. Trade takes the name as is; a full trade runs on `production` only. |
+| `environment` | `test` or `production`. Maps to the SDK's `testMode`; the SDK holds the hosts itself. Trade and Crypto take the name as is; a full trade or send runs on `production` only. |
 
 ### Integration parameters (non-secret)
 | Field | What it is | Who gives it |
 |---|---|---|
-| `chainId` | `X-Chain-Id` — the chain the partner operates on. For Trade, the main account's chain: Base (8453) or Arc (5042) | **Wirex**, per integration |
+| `chainId` | `X-Chain-Id` — the chain the partner operates on. For Trade and Crypto, the main account's chain: Base (8453) or Arc (5042) | **Wirex**, per integration |
 | `companyId` | `X-Company-Id` of the key login — the test user's company | **Wirex**, per integration |
 | `clientId` | `?client=` on the hosted pages (optional) | **Wirex** |
 | `userEmail` / `userWallet` | identity headers `X-User-Email` / `X-User-Wallet` | partner (the signed-in user) |
@@ -32,7 +32,7 @@ the provider block, or fetches an estimate with your bearer.
 | `bearer` | `getAccessToken` — Wirex bearer for the user | minted by the partner's auth |
 | `actionToken` | `getActionToken` — step-up for card data / PIN | the user's **wallet signature**, exchanged by the partner's backend |
 | `checkoutToken` | token mode — the short-lived top-up token | minted by the **partner's backend** |
-| `ownerKey` | **testing only** — the test user's exported key. Trade signs each step with it, and with no `bearer` the example logs in with it | never in the app: the user's own wallet signs |
+| `ownerKey` | **testing only** — the test user's exported key. Trade and Crypto sign each step with it, and with no `bearer` the example logs in with it | never in the app: the user's own wallet signs |
 
 ## Where the values come from
 
@@ -67,6 +67,7 @@ is the Unix time in seconds. The bearer it gets back stays in memory until a min
 | **Wallet — Apple Pay / Google Pay** | environment, chainId, bearer, walletProvider, walletAmount/Currency; paste the estimation id + provider config on the Wallet screen |
 | **Wallet — token mode** | the above + a `checkoutToken` your backend minted |
 | **Trade** (stocks and coins) | environment, chainId, ownerKey; and a bearer, or companyId + baasApiUrl for the key login. A full trade runs on `production` only, and the example refuses one worth more than 10 USD |
+| **Crypto** (sends and deposit addresses) | the same as Trade. On `production` the example refuses a send worth more than 10 USD: USDC, USDT and WUSD at face value, EURC and WEUR at ×1.25, any other token refused |
 
 ## Credentials in a real integration
 

@@ -18,12 +18,12 @@ const UNITS = /^\d+$/;
 const isDecimals = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 36;
 
 // Base units at `decimals` to cents, rounded up, so a fraction of a cent over the cap still counts.
-const ceilCents = (units: bigint, decimals: number): bigint => {
+export const ceilCents = (units: bigint, decimals: number): bigint => {
   const scale = 10n ** BigInt(decimals);
   return (units * 100n + scale - 1n) / scale;
 };
 
-const showCents = (cents: bigint): string => `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`;
+export const showCents = (cents: bigint): string => `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`;
 const CAP = `Refused: on production the example trades at most ${showCents(PRODUCTION_CAP_CENTS)} USD`;
 const overCap = (cents: bigint): string | null => (cents > PRODUCTION_CAP_CENTS ? `${CAP}, and this trade is worth ${showCents(cents)} USD.` : null);
 const UNREADABLE = `${CAP}, and this trade's worth cannot be read.`;
